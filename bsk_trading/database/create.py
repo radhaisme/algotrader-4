@@ -212,6 +212,8 @@ if __name__ == '__main__':
     symbol = {'name':'fx', 'city':'', 'country':'',
               'currency':'', 'timezone' :'', 'created_date':'2017-12-31'}
     
+    exchange = {}
+    
     
     #create_vendor(session, **vendor)
 
