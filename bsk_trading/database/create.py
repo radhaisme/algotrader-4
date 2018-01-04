@@ -139,7 +139,7 @@ def create_conn(**kwargs):
     instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}'.format(kwargs['dialect'],
                                                          kwargs['conector'],
                                                          kwargs['user'],
-                                                         kwargs['psw'],
+                                                         kwargs['password'],
                                                          kwargs['server'],
                                                          kwargs['port'],
                                                          kwargs['dbname'])
@@ -199,21 +199,22 @@ if __name__ == '__main__':
 
     
     
-    #create_db(**mysql_config())
+    #create_db(**SqlConfig)
     conn = create_conn(**mysql_config())
+    print(conn)
     #Base.metadata.create_all(conn)
         
-    Session = sessionmaker(bind=conn)
-    session = Session()
+    #Session = sessionmaker(bind=conn)
+    #session = Session()
 
     vendor = {'name':'QUANDL', 'website':'www.quandl.com', 'email':'',
                   'created_date': '2017-12-31'}
-   
+    
     symbol = {'name':'fx', 'city':'', 'country':'',
               'currency':'', 'timezone' :'', 'created_date':'2017-12-31'}
-    
+     
     exchange = {}
-    
+     
     
     #create_vendor(session, **vendor)
 

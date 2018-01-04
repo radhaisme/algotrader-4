@@ -26,7 +26,7 @@ if __name__ == '__main__':
     quandl_api_key = config('DEFAULT', 'quandl_api_key', 'str')
     
     my_data =get_treasury_curve_quandl(key=quandl_api_key, point='10y')
-    print(my_data)
+    print(my_data )
 
 
 
