@@ -1,30 +1,39 @@
 '''
 Created on 4 Jan 2018
 
-@author: Javier
+@author: Javier Garcia
 '''
 
 from common.config import OandaContext
-from account.account import Account
+from account import Account
 
 
 def main():
-    
+    """
+    Create an API context, and use it to fetch and display an Account summary.
+
+    The configuration for the context and Account to fetch is parsed from the
+    configuration file provided as an argument.
+    """
+    # Create empty context
     ctx = OandaContext('demo')
+    
+    # Load configuration
     ctx.load_configuration()
+    
+    # Create api
     api = ctx.create_context()
     
+    # Query for account summary
     account_id = ctx.active_account
-    
     response = api.account.summary(account_id)
     
+    # Get and parse the response
     summary = response.get("account", "200")
-    account = Account(summary)
+    my_account = Account(summary)
 
-    account.dump()
-
-
-
+    # Print out nicely
+    my_account.dump()
 
 
 if __name__ == '__main__':

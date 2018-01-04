@@ -44,6 +44,7 @@ class OandaContext():
             path: path to yaml configuration file
         """
         self.path = path
+        print('Loading from {}'.format(self.path))
         with open(os.path.expanduser(self.path), 'r') as stream:
             try:
                 # Here must specify demo or live oanda section of the Yaml file
@@ -157,6 +158,8 @@ class SqlEngine():
             path: path to yaml configuration file
         """
         self.path = path
+        print('Loading from {}'.format(self.path))
+        
         with open(os.path.expanduser(self.path), 'r') as stream:
             try:
                 #Here must specify SQL section of the Yaml file

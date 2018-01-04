@@ -55,7 +55,7 @@ class Account(object):
         self.order_states = {}
 
         #
-        # Teh collection of Positions open in the Account
+        # The collection of positions open in the account
         #
         self.positions = {}
 
@@ -107,6 +107,7 @@ class Account(object):
         """
 
         return self.trades.get(id, None)
+
 
     def order_get(self, id):
         """
