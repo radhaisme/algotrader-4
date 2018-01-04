@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, Numeric, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship, sessionmaker
 from datetime import datetime
-from common import mysql_config
+from common.config import ConfigSQL
 
 
 Base = declarative_base()
@@ -200,12 +200,16 @@ if __name__ == '__main__':
     
     
     #create_db(**SqlConfig)
-    conn = create_conn(**mysql_config())
-    print(conn)
+    conn = ConfigSQL()
+    conn.load_configuration()
+    conn.create_engine()
+    
     #Base.metadata.create_all(conn)
         
-    #Session = sessionmaker(bind=conn)
-    #session = Session()
+    Session = sessionmaker(bind=conn)
+    session = Session()
+    
+    print(session)
 
     vendor = {'name':'QUANDL', 'website':'www.quandl.com', 'email':'',
                   'created_date': '2017-12-31'}
