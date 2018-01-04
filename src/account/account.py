@@ -13,6 +13,7 @@ def update_attribute(dest, name, value):
        getattr(dest, name) is not None:
         setattr(dest, name, value)
 
+
 class Account(object):
     """
     An Account object is a wrapper for the Account entities fetched from the

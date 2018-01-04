@@ -5,8 +5,7 @@ Created on 4 Jan 2018
 '''
 
 from common.config import OandaContext
-
-from .account import Account
+from account.account import Account
 
 
 def main():
@@ -18,8 +17,6 @@ def main():
     account_id = ctx.active_account
     
     response = api.account.summary(account_id)
-    # print(response.get('account'))
-    
     
     summary = response.get("account", "200")
     account = Account(summary)
