@@ -1,8 +1,8 @@
-'''
+"""
 Created on 4 Jan 2018
 
-@author: Javier Garcia
-'''
+:author: Javier Garcia
+"""
 
 from common.config import OandaContext
 from account import Account
