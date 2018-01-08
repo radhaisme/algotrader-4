@@ -3,11 +3,9 @@ Created on 4 Jan 2018
 
 :author: Javier Garcia
 """
-
-from oanda_common.config import OandaContext
-from oanda.account.account import Account
-
 from common.config import oanda_connection_type
+from oanda.account.account import Account
+from oanda.oanda_common.config import OandaContext
 
 
 def main():
@@ -18,7 +16,7 @@ def main():
     configuration file provided as an argument.
     """
     # Create empty context
-    ctx = OandaContext(oanda_connection_type())
+    ctx = OandaContext()
     
     # Load configuration
     ctx.load_configuration()

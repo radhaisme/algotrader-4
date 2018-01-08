@@ -6,7 +6,7 @@ Uses REST API until Oanda publish V20 version
 import pandas as pd
 from datetime import datetime
 from tabulate import tabulate
-from oanda_common.oandapy import API
+from oanda.oanda_common.oandapy import API   # REST API HERE
 from common.config import oanda_config, oanda_connection_type
 
 
@@ -20,7 +20,7 @@ def get_favorites():
     token = config.get('token')
 
     # Create API using oandapy wrapper for REST API
-    oanda = API(environment = oanda_connection_type(), access_token = token)
+    oanda = API(environment = str(oanda_connection_type()), access_token = token)
 
     # Parameters
     payload = {}
@@ -89,14 +89,21 @@ def arrange_signals(response):
                                                                           'prediction'][
                                                                           'timeto'])
                            }
-        ans.append(signal_dict)
-        idx.append(s_id)
+            ans.append(signal_dict)
+            idx.append(s_id)
+
+        elif each_signal.get('type') == 'keylevel':
+            print('there is keylevel')
+
     return pd.DataFrame(ans, index = idx)
 
 
 if __name__ == "__main__":
 
     favorites = get_favorites()
+
+    print(favorites)
+
     signal_df = arrange_signals(favorites).sort_values(by = 'score_mean',
                                                        ascending = False)
 

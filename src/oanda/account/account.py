@@ -1,7 +1,7 @@
-import oanda_common.view
-from position.view import print_positions_map
-from order.view import print_orders_map
-from trade.view import print_trades_map
+import oanda.oanda_common.view
+from oanda.position.view import print_positions_map
+from oanda.order.view import print_orders_map
+from oanda.trade.view import print_trades_map
 
 
 def update_attribute(dest, name, value):
@@ -75,13 +75,12 @@ class Account(object):
         #
         self.details = account
 
-
     def dump(self):
         """
         Print out the whole Account state
         """
 
-        oanda_common.view.print_entity(
+        oanda.oanda_common.view.print_entity(
             self.details,
             title=self.details.title()
         )
@@ -93,7 +92,6 @@ class Account(object):
         print_orders_map(self.orders)
 
         print_trades_map(self.trades)
-
 
     def trade_get(self, id):
         """
@@ -108,7 +106,6 @@ class Account(object):
 
         return self.trades.get(id, None)
 
-
     def order_get(self, id):
         """
         Fetch a pending Order
@@ -121,7 +118,6 @@ class Account(object):
         """
 
         return self.orders.get(id, None)
-
 
     def position_get(self, instrument):
         """
@@ -136,7 +132,6 @@ class Account(object):
         """
 
         return self.positions.get(instrument, None)
-
 
     def apply_changes(self, changes):
         """
@@ -187,7 +182,6 @@ class Account(object):
             if len(self.transactions) > self.transaction_cache_depth:
                 self.transactions.pop(0)
 
-
     def apply_trade_states(self, trade_states):
         """
         Update state for open Trades
@@ -205,7 +199,6 @@ class Account(object):
 
             for field in trade_state.fields():
                 setattr(trade, field.name, field.value)
-
 
     def apply_position_states(self, position_states):
         """
@@ -227,7 +220,6 @@ class Account(object):
             position.long.unrealizedPL = position_state.longUnrealizedPL
             position.short.unrealizedPL = position_state.shortUnrealizedPL
 
-
     def apply_order_states(self, order_states):
         """
         Update state for all Orders
@@ -246,7 +238,6 @@ class Account(object):
             order.trailingStopValue = order_state.trailingStopValue
 
             self.order_states[order.id] = order_state
-
 
     def apply_state(self, state):
         """

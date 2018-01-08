@@ -312,7 +312,7 @@ def create_new_schema():
 if __name__ == '__main__':
     # Create a new database with the declarative schema written here
     # ONLY use when you want to reinitialize the database
-    # BE CAUTIOUS DELETE DATA
+    # BE CAUTIOUS THIS DELETE DATA
     create_new_schema()
 
     

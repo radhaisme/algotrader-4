@@ -1,6 +1,9 @@
 import os
 import yaml
 
+###############################################################
+# ALL CONFIG SELECTIONS FROM HERE
+###############################################################
 CONFIG = os.environ['TRADE_CONF']
 
 

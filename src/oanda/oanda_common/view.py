@@ -1,5 +1,4 @@
 import sys
-
 from tabulate import tabulate
 
 
@@ -100,13 +99,7 @@ def print_collection(title, entities, columns):
     print("")
 
 
-
-def print_response_entity(
-    response,
-    expected_status,
-    title,
-    transaction_name
-):
+def print_response_entity(response, expected_status, title, transaction_name):
     """
     Print a Transaction from a response object if the Transaction exists and
     the response has the expected HTTP status code. 
