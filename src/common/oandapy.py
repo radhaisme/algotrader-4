@@ -245,7 +245,7 @@ class API(EndpointsMixin, object):
 
         if environment == 'sandbox':
             self.api_url = 'http://api-sandbox.oanda.com'
-        elif environment == 'practice':
+        elif environment == 'demo':
             self.api_url = 'https://api-fxpractice.oanda.com'
         elif environment == 'live':
             self.api_url = 'https://api-fxtrade.oanda.com'
@@ -290,10 +290,10 @@ class API(EndpointsMixin, object):
         try:
             response = func(url, **request_args)
             content = response.content.decode('utf-8')
-        except requests.RequestException as e:
-            print (str(e))
-            content = dict(error=str(e))
 
+        except requests.RequestException as e:
+            print(str(e))
+            content = dict(error=str(e))
 
         content = json.loads(content)
 
