@@ -3,33 +3,24 @@
 Uses REST API until Oanda publish V20 version
 
 """
-import os
-import yaml
 import pandas as pd
 from datetime import datetime
 from tabulate import tabulate
-from common.oandapy import API
-
-# Get configuration path from enviromental variable
-CONFIG = os.environ['TRADE_CONF']
+from oanda_common.oandapy import API
+from common.config import oanda_config, oanda_connection_type
 
 
-def get_favorites(connection_type = "demo"):
+def get_favorites():
+    """
+    Get Autochartist favorite technical signals, through Oanda Rest API
+
     """
 
-    Args:
-        connection_type: "demo" or "live"
-
-    Returns:
-
-    """
-    # Open and read configuration file
-    stream = open(os.path.expanduser(CONFIG), 'r')
-    config = yaml.load(stream)['oanda_'+connection_type]
+    config = oanda_config()
     token = config.get('token')
 
     # Create API using oandapy wrapper for REST API
-    oanda = API(environment = connection_type, access_token = token)
+    oanda = API(environment = oanda_connection_type(), access_token = token)
 
     # Parameters
     payload = {}
@@ -105,7 +96,7 @@ def arrange_signals(response):
 
 if __name__ == "__main__":
 
-    favorites = get_favorites(connection_type = 'live')
+    favorites = get_favorites()
     signal_df = arrange_signals(favorites).sort_values(by = 'score_mean',
                                                        ascending = False)
 

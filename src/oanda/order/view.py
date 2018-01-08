@@ -1,4 +1,4 @@
-import common.view
+import oanda_common.view
 
 
 def print_orders_map(orders_map):
@@ -42,7 +42,7 @@ def print_orders(orders):
     #
     # Print the Orders in a table with their ID, type, state, and summary
     #
-    common.view.print_collection(
+    oanda_common.view.print_collection(
         "{} Orders".format(len(orders)),
         orders,
         [
@@ -61,79 +61,79 @@ def print_order_create_response_transactions(response):
     Print out the transactions found in the order create response
     """
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Order Create",
         "orderCreateTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Long Order Create",
         "longOrderCreateTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Short Order Create",
         "shortOrderCreateTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Order Fill",
         "orderFillTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Long Order Fill",
         "longOrderFillTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Short Order Fill",
         "shortOrderFillTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Order Cancel",
         "orderCancelTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Long Order Cancel",
         "longOrderCancelTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Short Order Cancel",
         "shortOrderCancelTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Order Reissue",
         "orderReissueTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Order Reject",
         "orderRejectTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Order Reissue Reject",
         "orderReissueRejectTransaction"
     )
 
-    common.view.print_response_entity(
+    oanda_common.view.print_response_entity(
         response, None,
         "Replacing Order Cancel", 
         "replacingOrderCancelTransaction"

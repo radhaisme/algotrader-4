@@ -2,8 +2,10 @@ from datetime import datetime
 import argparse
 import v20.transaction
 
+
 def instrument(i):
     return i.replace("/", "_")
+
 
 def date_time(fmt="%Y-%m-%d %H:%M:%S"):
     def parse(s):

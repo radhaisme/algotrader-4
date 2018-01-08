@@ -1,4 +1,4 @@
-import common.view
+import oanda_common.view
 
 
 def print_trades_map(trades_map):
@@ -28,7 +28,7 @@ def print_trades(trades):
     #
     # Print the Trades in a table with their ID, state, summary, upl and pl
     #
-    common.view.print_collection(
+    oanda_common.view.print_collection(
         "{} Trades".format(len(trades)),
         trades,
         [

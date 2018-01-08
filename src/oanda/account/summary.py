@@ -4,8 +4,10 @@ Created on 4 Jan 2018
 :author: Javier Garcia
 """
 
-from common.config import OandaContext
-from account import Account
+from oanda_common.config import OandaContext
+from oanda.account.account import Account
+
+from common.config import oanda_connection_type
 
 
 def main():
@@ -16,7 +18,7 @@ def main():
     configuration file provided as an argument.
     """
     # Create empty context
-    ctx = OandaContext('demo')
+    ctx = OandaContext(oanda_connection_type())
     
     # Load configuration
     ctx.load_configuration()

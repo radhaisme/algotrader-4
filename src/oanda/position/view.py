@@ -1,4 +1,4 @@
-import common.view
+import oanda_common.view
 
 
 def position_side_formatter(side_name):
@@ -64,7 +64,7 @@ def print_positions(positions, open_only=True):
     # Print the Trades in a table with their Instrument, realized PL,
     # unrealized PL long postion summary and shor position summary
     #
-    common.view.print_collection(
+    oanda_common.view.print_collection(
         "{} {}Positions".format(
             len(filtered_positions),
             "Open " if open_only else ""

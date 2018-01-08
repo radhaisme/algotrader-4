@@ -1,5 +1,6 @@
-import common.view
-from common.config import OandaContext
+import oanda_common.view
+from oanda_common.config import OandaContext
+from common.config import oanda_connection_type
 
 
 def main():
@@ -11,7 +12,7 @@ def main():
     configuration file provided as an argument.
     """
     # Create empty context
-    ctx = OandaContext('demo')
+    ctx = OandaContext(oanda_connection_type())
     # Load configuration
     ctx.load_configuration()
     # Create API
@@ -35,7 +36,7 @@ def main():
         return "{:.4f}".format(location)
 
     # Print the details of the Account's tradeable instruments
-    common.view.print_collection(
+    oanda_common.view.print_collection(
             "{} Instruments".format(len(instruments)),
             instruments,
             [

@@ -1,4 +1,4 @@
-import common.view
+import oanda_common.view
 from position.view import print_positions_map
 from order.view import print_orders_map
 from trade.view import print_trades_map
@@ -81,7 +81,7 @@ class Account(object):
         Print out the whole Account state
         """
 
-        common.view.print_entity(
+        oanda_common.view.print_entity(
             self.details,
             title=self.details.title()
         )

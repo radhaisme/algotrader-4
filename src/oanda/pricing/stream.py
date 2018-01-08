@@ -1,5 +1,5 @@
 from pricing.view import price_to_string, heartbeat_to_string
-from common.config import OandaContext
+from oanda_common.config import OandaContext
 
 
 def main():

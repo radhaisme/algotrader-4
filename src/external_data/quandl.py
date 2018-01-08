@@ -5,10 +5,15 @@ Created on 29 Dec 2017
 
 @author: Javier Garcia
 '''
-from common import config
+from oanda_common import config
 import quandl
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+
+# Get configuration path from enviromental variable
+CONFIG = os.environ['TRADE_CONF']
+
 
 def time_series(dbase, dset, col, sdate='', edate=''):
     """
@@ -22,7 +27,7 @@ def time_series(dbase, dset, col, sdate='', edate=''):
 
 
 if __name__ == '__main__':
-    my_quandl_api = config(section='DEFAULT', key='quandl_api_key')
+    my_quandl_api = os.con
     quandl.ApiConfig.api_key = my_quandl_api
     
     database = 'USTREASURY'

@@ -5,7 +5,7 @@ Created on 30 Dec 2017
 """
 
 import quandl
-from common import config
+from oanda_common import config
 
 
 def get_treasury_curve_quandl(key, point, sdate='', edate=''):

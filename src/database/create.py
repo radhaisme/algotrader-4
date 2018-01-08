@@ -9,10 +9,95 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, Numeric, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship, sessionmaker
 from datetime import datetime
-from common.config import ConfigSQL
+from common.config import sql_config
 
 
 Base = declarative_base()
+
+
+class SqlEngine:
+    """
+    Engine object with all the requirement to connect to MySQL
+    """
+
+    def __init__(self):
+        """
+        Initialize an empty configuration object
+        """
+        self.dialect = None
+        self.connector = None
+        self.server = None
+        self.port = None
+        self.user = None
+        self.password = None
+        self.dbname = None
+        self.echo = True
+        self.path = None
+
+    def load_configuration(self, **kwargs):
+        """
+
+        """
+
+        self.dialect = kwargs.get('dialect', self.dialect)
+        self.connector = kwargs.get('connector', self.connector)
+        self.server = kwargs.get('server', self.server)
+        self.password = kwargs.get('password', self.password)
+        self.port = kwargs.get('port', self.port)
+        self.user = kwargs.get('user', self.user)
+        self.dbname = kwargs.get('dbname', self.dbname)
+        self.echo = kwargs.get('echo', self.echo)
+
+        self.validate()
+
+    def create_engine(self):
+        """
+        Initialize engine to MySQL database for a given configuration
+        """
+        instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}'.format(self.dialect,
+                                                             self.connector,
+                                                             self.user,
+                                                             self.password,
+                                                             self.server,
+                                                             self.port,
+                                                             self.dbname)
+        try:
+            engine = sqlalchemy.create_engine(instruction, echo = self.echo)
+            print('Engine created successfully.  --  '+str(engine))
+            return engine
+        except:
+            print(
+                    'There is a problem with the engine creation - Check configuration '
+                    'or '
+                    'server')
+
+    def validate(self):
+        """
+        Ensure configuration is valid
+        """
+        errors = []
+
+        if self.dialect is None:
+            errors.append('dialect')
+        if self.connector is None:
+            errors.append('connector')
+        if self.user is None:
+            errors.append('user')
+        if self.password is None:
+            errors.append('password')
+        if self.server is None:
+            errors.append('server')
+        if self.port is None:
+            errors.append('port')
+        if self.dbname is None:
+            errors.append('dbname')
+
+        if len(errors) > 0:
+            print('Configuration file has error in:')
+            for e in errors:
+                print('    - '+e)
+        else:
+            print('Configuration file is OK.')
 
 
 class Exchange(Base):
@@ -114,9 +199,9 @@ def create_db(**kwargs):
     """
    
     instruction = '{0}+{1}://{2}:{3}@{4}:{5}'.format(kwargs['dialect'],
-                                                     kwargs['conector'],
+                                                     kwargs['connector'],
                                                      kwargs['user'],
-                                                     kwargs['psw'],
+                                                     kwargs['password'],
                                                      kwargs['server'],
                                                      kwargs['port'])
     db_engine = sqlalchemy.create_engine(instruction, echo=kwargs['echo'])
@@ -191,39 +276,59 @@ def create_exchange(current_session, **kwargs):
     pass
 
 
+def create_new_schema():
+    """
 
-    
-    
-    
+    Returns: A new database with the configuration given in the .conf file
+
+    """
+    check = input('This will create a new database. Shall we proceed? "yes/no: ')
+
+    if check == 'yes':
+        # Get SQL configuration from .conf file
+        config = sql_config()
+
+        # Create a new empty database
+        create_db(**config)
+
+        # Create engine that connect to the new database
+        conn = SqlEngine()
+        conn.load_configuration(**config)
+        my_engine = conn.create_engine()
+
+        # Apply the metadata in the declarative base
+        # Table creation
+        Base.metadata.create_all(my_engine)
+
+        # Tell me what tables are there
+        print('\nTables at database:')
+        meta = Base.metadata
+        for table in meta.tables.keys():
+            print('     ' + table)
+    else:
+        print('Mission aborted')
+
+
 if __name__ == '__main__':
+    # Create a new database with the declarative schema written here
+    # ONLY use when you want to reinitialize the database
+    # BE CAUTIOUS DELETE DATA
+    create_new_schema()
 
     
-    
-    #create_db(**SqlConfig)
-    conn = ConfigSQL()
-    conn.load_configuration()
-    conn.create_engine()
-    
-    #Base.metadata.create_all(conn)
-        
-    Session = sessionmaker(bind=conn)
-    session = Session()
-    
-    print(session)
 
-    vendor = {'name':'QUANDL', 'website':'www.quandl.com', 'email':'',
-                  'created_date': '2017-12-31'}
-    
-    symbol = {'name':'fx', 'city':'', 'country':'',
-              'currency':'', 'timezone' :'', 'created_date':'2017-12-31'}
-     
-    exchange = {}
-     
-    
-    #create_vendor(session, **vendor)
-
-
-
-
-
-
+    # Session = sessionmaker(bind=conn)
+    # session = Session()
+    #
+    # print(session)
+    #
+    # vendor = {'name':'QUANDL', 'website':'www.quandl.com', 'email':'',
+    #               'created_date': '2017-12-31'}
+    #
+    # symbol = {'name':'fx', 'city':'', 'country':'',
+    #           'currency':'', 'timezone' :'', 'created_date':'2017-12-31'}
+    #
+    # exchange = {}
+    #
+    #
+    # #create_vendor(session, **vendor)
