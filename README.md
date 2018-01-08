@@ -1,10 +1,12 @@
 #ATHENA
 
+
 ## What is it?:
 
 Event driven engine for analysis and trading of financial assets.
 
 Written in Python 3.5, work in progress.
+
 
 ## The names:
 
@@ -27,6 +29,7 @@ Written in Python 3.5, work in progress.
 	From: [wikipedia](http://en.wikipedia.org/wiki/List_of_Greek_mythological_figures) 
 
 *	**Mneme:** Muse of memory
+
 
 ##Contact:
 * [javier.macro.trader@gmail.com](mailto:javier.macro.trader@gmail.com)
