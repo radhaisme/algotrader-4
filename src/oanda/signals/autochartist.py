@@ -94,7 +94,7 @@ def arrange_signals(response):
                            'time_from': datetime.fromtimestamp(signal_data[
                                                                    'prediction'][
                                                                    'timefrom']),
-                           'time_to': datetime.datetime.fromtimestamp(signal_data[
+                           'time_to': datetime.fromtimestamp(signal_data[
                                                                           'prediction'][
                                                                           'timeto'])
                            }
@@ -108,4 +108,6 @@ if __name__ == "__main__":
     favorites = get_favorites(connection_type = 'live')
     signal_df = arrange_signals(favorites).sort_values(by = 'score_mean',
                                                        ascending = False)
-    print(tabulate(signal_df, headers = 'keys', tablefmt = 'simple'))
+
+    filtered_signals = signal_df.loc[signal_df['interval'] <= 60]
+    print(tabulate(filtered_signals, headers = 'keys', tablefmt = 'simple'))
