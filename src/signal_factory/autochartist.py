@@ -25,7 +25,7 @@ def get_favorites():
     # Parameters
     payload = {}
     # Get signals
-    ans = oanda.get_autochartist(params = payload)
+    ans = oanda.get_autochartist(param = payload)
     return ans
 
 
@@ -66,8 +66,7 @@ def arrange_signals(response):
                            'stats_pattern': meta['historicalstats']['pattern']['percent'],
                            'stats_hour': meta['historicalstats']['hourofday']['percent'],
                            'trend_type': meta['trendtype'],
-                           'end_time': datetime.fromtimestamp(signal_data[
-                                                                  'patternendtime']),
+                           'end_time': (signal_data['patternendtime']),
                            'resistance_y0': signal_data['points']['resistance']['y0'],
                            'resistance_x0': datetime.fromtimestamp(
                                    signal_data['points']['resistance']['x0']),
@@ -101,11 +100,8 @@ def arrange_signals(response):
 if __name__ == "__main__":
 
     favorites = get_favorites()
-
-    print(favorites)
-
     signal_df = arrange_signals(favorites).sort_values(by = 'score_mean',
                                                        ascending = False)
 
-    filtered_signals = signal_df.loc[signal_df['interval'] <= 60]
-    print(tabulate(filtered_signals, headers = 'keys', tablefmt = 'simple'))
+    #filtered_signals = signal_df.loc[signal_df['interval'] <= 60]
+    print(tabulate(signal_df, headers = 'keys', tablefmt = 'simple'))

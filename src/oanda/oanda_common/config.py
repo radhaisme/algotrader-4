@@ -108,3 +108,5 @@ class OandaContext:
         else:
             print('Configuration file is OK.')
 
+
+

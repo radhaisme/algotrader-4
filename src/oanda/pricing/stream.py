@@ -9,7 +9,7 @@ def main():
     show_heartbeats = False
 
     # Create empty context
-    ctx = OandaContext('demo')
+    ctx = OandaContext()
     # Load configuration
     ctx.load_configuration()
     # Create API
