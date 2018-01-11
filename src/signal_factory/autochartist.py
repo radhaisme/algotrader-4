@@ -4,10 +4,11 @@ Uses REST API until Oanda publish V20 version
 
 """
 import pandas as pd
-from datetime import datetime
+import datetime as dt
 from tabulate import tabulate
-from oanda.oanda_common.oandapy import API   # REST API HERE
+from oanda.oanda_common.oandapy import API  # REST API HERE
 from common.config import oanda_config, oanda_connection_type
+from time import time
 
 
 def get_favorites():
@@ -66,27 +67,28 @@ def arrange_signals(response):
                            'stats_pattern': meta['historicalstats']['pattern']['percent'],
                            'stats_hour': meta['historicalstats']['hourofday']['percent'],
                            'trend_type': meta['trendtype'],
-                           'end_time': (signal_data['patternendtime']),
+                           'end_time': dt.datetime.fromtimestamp(
+                                   signal_data['patternendtime']),
+                           'time_since_end': dt.timedelta(seconds = (
+                                   time() - signal_data['patternendtime'])),
                            'resistance_y0': signal_data['points']['resistance']['y0'],
-                           'resistance_x0': datetime.fromtimestamp(
+                           'resistance_x0': dt.datetime.fromtimestamp(
                                    signal_data['points']['resistance']['x0']),
                            'resistance_y1': signal_data['points']['resistance']['y1'],
-                           'resistance_x1': datetime.fromtimestamp(
+                           'resistance_x1': dt.datetime.fromtimestamp(
                                    signal_data['points']['resistance']['x0']),
                            'support_y0': signal_data['points']['support']['y0'],
-                           'support_x0': datetime.fromtimestamp(
+                           'support_x0': dt.datetime.fromtimestamp(
                                    signal_data['points']['support']['x0']),
                            'support_y1': signal_data['points']['support']['y1'],
-                           'support_x1': datetime.fromtimestamp(
+                           'support_x1': dt.datetime.fromtimestamp(
                                    signal_data['points']['support']['x1']),
                            'prediction_low': signal_data['prediction']['pricelow'],
                            'prediction_high': signal_data['prediction']['pricehigh'],
-                           'time_from': datetime.fromtimestamp(signal_data[
-                                                                   'prediction'][
-                                                                   'timefrom']),
-                           'time_to': datetime.fromtimestamp(signal_data[
-                                                                          'prediction'][
-                                                                          'timeto'])
+                           'time_from': dt.datetime.fromtimestamp(
+                                   signal_data['prediction']['timefrom']),
+                           'time_to': dt.datetime.fromtimestamp(
+                                   signal_data['prediction']['timeto'])
                            }
             ans.append(signal_dict)
             idx.append(s_id)
@@ -97,11 +99,15 @@ def arrange_signals(response):
     return pd.DataFrame(ans, index = idx)
 
 
-if __name__ == "__main__":
-
+def print_out():
     favorites = get_favorites()
-    signal_df = arrange_signals(favorites).sort_values(by = 'score_mean',
+    signal_df = arrange_signals(favorites).sort_values(by = 'time_since_end',
                                                        ascending = False)
 
-    #filtered_signals = signal_df.loc[signal_df['interval'] <= 60]
+    # filtered_signals = signal_df.loc[signal_df['interval'] <= 60]
     print(tabulate(signal_df, headers = 'keys', tablefmt = 'simple'))
+
+
+if __name__ == "__main__":
+
+    print_out()
