@@ -38,7 +38,6 @@ class SqlEngine:
         """
 
         """
-
         self.dialect = kwargs.get('dialect', self.dialect)
         self.connector = kwargs.get('connector', self.connector)
         self.server = kwargs.get('server', self.server)
@@ -134,18 +133,14 @@ class Symbol(Base):
     Symbol object
     """
     __tablename__ = 'symbols'
-    id_symbol = Column(Integer, primary_key=True)
+    symbol = Column(String(32), primary_key=True)
     id_exchange = Column(Integer, ForeignKey('vendors.id_vendor'))
-    ticket = Column(String(32))
-    decimals = Column(Integer)
-    human_name = Column(String(64))
     asset_class = Column(String(64))
     base_currency = Column(String(64))
     quote_currency = Column(String(64))
-    is_tradable = Column(Boolean)
     created_date = Column(DateTime)
     last_updated_date = Column(DateTime)
-    children = relationship("DailyPrice")
+    children = relationship("DailyPrice", 'TickFXPrice')
 
 
 class DailyPrice(Base):
@@ -155,7 +150,7 @@ class DailyPrice(Base):
     __tablename__ = 'daily_prices'
     id_daily_price = Column(Integer, primary_key=True)
     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
-    id_symbol = Column(Integer, ForeignKey('symbols.id_symbol'))
+    symbol = Column(String(32), ForeignKey('symbols.symbol'))
     price_date = Column(DateTime)
     created_date = Column(DateTime)
     last_updated_date = Column(DateTime)
@@ -164,33 +159,49 @@ class DailyPrice(Base):
     high_price = Column(Numeric(19, 6))
     low_price = Column(Numeric(19, 6))
     open_price = Column(Numeric(19, 6))
-    volume = Column(Integer) 
+    volume = Column(Integer)
 
 
-class EcoSymbol(Base):
+class TickFXPrice(Base):
     """
-    Economic symbol object
+    Daily Prices
     """
-    __tablename__ = 'eco_symbols'
-    id_eco_symbol = Column(Integer, primary_key=True)
-    ticket = Column(String(32))
-    country = Column(String(32))
-    human_name = Column(String(64))
-    currency = Column(String(64))
-    children = relationship("EcoData")
-    
-    
-class EcoData(Base):
-    """
-    Economic data object
-    """
-    __tablename__ = 'economic_data'
-    id_eco_data = Column(Integer, primary_key=True)
+    __tablename__ = 'tick_fx_prices'
+    id_tick_fx_price = Column(Integer, primary_key=True)
     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
-    id_eco_symbol = Column(Integer, ForeignKey('eco_symbols.id_eco_symbol'))
+    symbol = Column(String(32), ForeignKey('symbols.symbol'))
     price_date = Column(DateTime)
     created_date = Column(DateTime)
-    close_price = Column(Numeric(19,6))
+    last_updated_date = Column(DateTime)
+    bid = Column(Numeric(19, 6))
+    ask = Column(Numeric(19, 6))
+
+
+
+# class EcoSymbol(Base):
+#     """
+#     Economic symbol object
+#     """
+#     __tablename__ = 'eco_symbols'
+#     id_eco_symbol = Column(Integer, primary_key=True)
+#     ticket = Column(String(32))
+#     country = Column(String(32))
+#     human_name = Column(String(64))
+#     currency = Column(String(64))
+#     children = relationship("EcoData")
+#
+#
+# class EcoData(Base):
+#     """
+#     Economic data object
+#     """
+#     __tablename__ = 'economic_data'
+#     id_eco_data = Column(Integer, primary_key=True)
+#     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
+#     id_eco_symbol = Column(Integer, ForeignKey('eco_symbols.id_eco_symbol'))
+#     price_date = Column(DateTime)
+#     created_date = Column(DateTime)
+#     close_price = Column(Numeric(19,6))
     
 
 def create_db(**kwargs):
