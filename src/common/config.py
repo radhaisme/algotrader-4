@@ -22,3 +22,10 @@ def sql_config():
     return yaml.load(stream)['sql']
 
 
+def data_storage_path():
+    stream = open(os.path.expanduser(CONFIG), 'r')
+    return yaml.load(stream)['storage']['data_store']
+
+def fxcm_data_path():
+    stream = open(os.path.expanduser(CONFIG), 'r')
+    return yaml.load(stream)['fxcm_data']['hostname']

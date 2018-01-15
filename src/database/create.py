@@ -112,6 +112,7 @@ class Exchange(Base):
     timezone = Column(String(255))
     created_date = Column(DateTime)
     last_updated_date = Column(DateTime)
+    children = relationship("Symbol")
 
 
 class DataVendor(Base):
@@ -125,7 +126,7 @@ class DataVendor(Base):
     email = Column(String(255))
     created_date = Column(DateTime)
     last_updated_date = Column(DateTime)
-    children = relationship("Symbol")
+    children = relationship("stock_daily_prices", 'fxmc_tick_data')
 
 
 class Symbol(Base):
@@ -134,26 +135,25 @@ class Symbol(Base):
     """
     __tablename__ = 'symbols'
     symbol = Column(String(32), primary_key=True)
-    id_exchange = Column(Integer, ForeignKey('vendors.id_vendor'))
+    id_exchange = Column(Integer, ForeignKey('exchanges.id_exchange'))
     asset_class = Column(String(64))
     base_currency = Column(String(64))
     quote_currency = Column(String(64))
     created_date = Column(DateTime)
     last_updated_date = Column(DateTime)
-    children = relationship("DailyPrice", 'TickFXPrice')
+    children = relationship("stock_daily_prices", 'fxmc_tick_data')
 
 
-class DailyPrice(Base):
+class StockDailyPrice(Base):
     """
     Daily Prices
     """
-    __tablename__ = 'daily_prices'
+    __tablename__ = 'stock_daily_prices'
     id_daily_price = Column(Integer, primary_key=True)
     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
+    last_update = Column(DateTime)
     symbol = Column(String(32), ForeignKey('symbols.symbol'))
     price_date = Column(DateTime)
-    created_date = Column(DateTime)
-    last_updated_date = Column(DateTime)
     close_price = Column(Numeric(19, 6))
     adj_close_price = Column(Numeric(19, 6))
     high_price = Column(Numeric(19, 6))
@@ -162,19 +162,33 @@ class DailyPrice(Base):
     volume = Column(Integer)
 
 
-class TickFXPrice(Base):
+class FxmcTickData(Base):
     """
-    Daily Prices
+    Tick Data from FXMC
     """
-    __tablename__ = 'tick_fx_prices'
+    __tablename__ = 'fxmc_tick_data'
     id_tick_fx_price = Column(Integer, primary_key=True)
     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
+    last_update = Column(DateTime)
     symbol = Column(String(32), ForeignKey('symbols.symbol'))
     price_date = Column(DateTime)
-    created_date = Column(DateTime)
-    last_updated_date = Column(DateTime)
     bid = Column(Numeric(19, 6))
     ask = Column(Numeric(19, 6))
+
+
+class OandaCandleData(Base):
+    """
+    Tick Data from FXMC
+    """
+    __tablename__ = 'oanda_5s_data'
+    id_tick_fx_price = Column(Integer, primary_key=True)
+    id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
+    last_update = Column(DateTime)
+    symbol = Column(String(32), ForeignKey('symbols.symbol'))
+    price_date = Column(DateTime)
+    bid = Column(Numeric(19, 6))
+    ask = Column(Numeric(19, 6))
+
 
 
 
@@ -242,49 +256,49 @@ def create_conn(**kwargs):
     
     return sqlalchemy.create_engine(instruction, echo=kwargs['echo'])
     
-
-def create_vendor(current_session, **kwargs):
-    """
-    Create/Update a vendor 
-    """
-    # Checking if registered
-    stmt = exists().where(DataVendor.name == kwargs['name'])
-    qry =  current_session.query(stmt)
-    is_registered = qry.scalar()
-
-    # DataVendor object
-    # Parse created_date to Datetime
-    created_date = datetime.strptime(kwargs['created_date'], '%Y-%m-%d')
-    vendor_to_add = DataVendor(name = kwargs['name'], website = kwargs['website'], email = kwargs['email'], 
-                               created_date = created_date, last_updated_date = datetime.now())
-    
-    if is_registered:
-        # Registered vendor
-        print('Data Vendor {} already exists.'.format(kwargs['name']))
-        proceed_with_update = input('Proceed with update? (yes/no): ' )
-        
-        if proceed_with_update == 'yes':
-            # Delete previous entries and add new
-            current_session.query(DataVendor).filter_by(name=kwargs['name'] ).delete()
-            current_session.add(vendor_to_add)
-            current_session.commit()
-            print('Data Vendor {} updated.'.format(kwargs['name']))
-        elif proceed_with_update == 'no':
-            # Do nothing
-            print('Update for {} skipped.'.format(kwargs['name']))
-    else:
-        # Create new vendor
-        current_session.add(vendor_to_add)
-        current_session.commit()
-        print('New Data Vendor {} added to database.'.format(kwargs['name']))
-            
-    
-def create_symbol(current_session, **kwargs):
-    pass
-
-
-def create_exchange(current_session, **kwargs):
-    pass
+#
+# def create_vendor(current_session, **kwargs):
+#     """
+#     Create/Update a vendor
+#     """
+#     # Checking if registered
+#     stmt = exists().where(DataVendor.name == kwargs['name'])
+#     qry =  current_session.query(stmt)
+#     is_registered = qry.scalar()
+#
+#     # DataVendor object
+#     # Parse created_date to Datetime
+#     created_date = datetime.strptime(kwargs['created_date'], '%Y-%m-%d')
+#     vendor_to_add = DataVendor(name = kwargs['name'], website = kwargs['website'], email = kwargs['email'],
+#                                created_date = created_date, last_updated_date = datetime.now())
+#
+#     if is_registered:
+#         # Registered vendor
+#         print('Data Vendor {} already exists.'.format(kwargs['name']))
+#         proceed_with_update = input('Proceed with update? (yes/no): ' )
+#
+#         if proceed_with_update == 'yes':
+#             # Delete previous entries and add new
+#             current_session.query(DataVendor).filter_by(name=kwargs['name'] ).delete()
+#             current_session.add(vendor_to_add)
+#             current_session.commit()
+#             print('Data Vendor {} updated.'.format(kwargs['name']))
+#         elif proceed_with_update == 'no':
+#             # Do nothing
+#             print('Update for {} skipped.'.format(kwargs['name']))
+#     else:
+#         # Create new vendor
+#         current_session.add(vendor_to_add)
+#         current_session.commit()
+#         print('New Data Vendor {} added to database.'.format(kwargs['name']))
+#
+#
+# def create_symbol(current_session, **kwargs):
+#     pass
+#
+#
+# def create_exchange(current_session, **kwargs):
+#     pass
 
 
 def create_new_schema():
