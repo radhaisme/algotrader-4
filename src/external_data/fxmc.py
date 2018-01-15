@@ -7,18 +7,17 @@ AUDCAD,AUDCHF,AUDJPY,AUDNZD,CADCHF,EURAUD,EURCHF,EURGBP,EURJPY
 EURUSD,GBPCHF,GBPJPY,GBPNZD,GBPUSD,NZDCAD,NZDCHF.NZDJPY,NZDUSD
 USDCAD,USDCHF,USDJPY
 """
-from io import BytesIO
 from database.create import SqlEngine
 from sqlalchemy.orm import sessionmaker
 from common.config import sql_config, data_storage_path, fxcm_data_path
-from os.path import join
+from os.path import join, isfile
 import time
 import pathlib
 import sys
 import datetime
 import gzip
-from pprint import pprint
-import urllib.request
+
+
 import datetime
 import requests
 
@@ -44,70 +43,85 @@ def get_datafiles():
                         'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
                         'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
                         'USDCAD', 'USDCHF', 'USDJPY']
-    list_to_download = ['AUDCAD']
+
+    # list_to_download = ['AUDCAD']
     # Set the dates
     start_dt = datetime.date(2015, 1, 1)
-    end_dt = datetime.date(2018, 2, 28)
+    end_dt = datetime.date(2017, 12, 28)
 
-    # Find the corresponding weeks
-    start_wk = start_dt.isocalendar()[1]
-    end_wk = end_dt.isocalendar()[1]
+    # Dates
     start_year = start_dt.isocalendar()[0]
     end_year = end_dt.isocalendar()[0]
 
-    # Create list with all the required urls
-    urls =[]
+    # Create dict with all the required urls
+    urls = {}
     for symbol in list_to_download:
-        # Loop when download is all in the same year.
-        if start_year == end_year:
-            for wk in range(start_wk, end_wk + 1):
-                urls.append('{}/{}/{}/{}{}'.format(url, symbol, str(start_year), str(wk),
-                                                   url_suffix))
-        # Loop when download has more than one year
-        else:
-            for yr in range(start_year, end_year + 1):
-                # Initial year
+        for yr in range(start_year, end_year+1):
+            # All within same year
+            if start_year == end_year:
+                start_wk = start_dt.isocalendar()[1]
+                end_wk = end_dt.isocalendar()[1]
+            else:
+                # When more than a year - first year
                 if yr == start_year:
-                    for wk in range(start_wk, datetime.date(yr, 12, 28).isocalendar()[
-                                                  1] + 1):
-                        urls.append('{}/{}/{}/{}{}'.format(url, symbol, str(yr), str(wk),
-                                                           url_suffix))
-                # End year
+                    start_wk = start_dt.isocalendar()[1]
+                    end_wk = datetime.date(yr, 12, 28).isocalendar()[1]+1
+                # When more than a year - end year
                 elif yr == end_year:
-                    for wk in range(1, end_wk + 1):
-                        urls.append('{}/{}/{}/{}{}'.format(url, symbol, str(yr), str(wk),
-                                                           url_suffix))
-                # And in between
+                    start_wk = 1
+                    end_wk = end_dt.isocalendar()[1]+1
+                # When more than a year - in between
                 else:
-                    for wk in range(1, datetime.date(yr, 12, 28).isocalendar()[1] + 1):
-                        urls.append('{}/{}/{}/{}{}'.format(url, symbol, str(yr), str(wk),
-                                                           url_suffix))
+                    start_wk = 1
+                    end_wk = datetime.date(yr, 12, 28).isocalendar()[1]+1
 
-            pprint(urls)
-            # save_dir = join(store, 'fxcm', symbol, str(start_year))
-            # save_to = join(store, 'fxcm', symbol, str(start_year), str(wk)+url_suffix)
-            #
-            # # Recursively creates the directory and does not raise an exception if
-            # # the directory already exists. See: https://goo.gl/rn3q4E
-            # pathlib.Path(save_dir).mkdir(parents = True, exist_ok = True)
-            #
-            # # make the request
-            # try:
-            #     time.sleep(5)
-            #     r = requests.get(url_data)
-            # except requests.exceptions.RequestException as e:
-            #     print(e)
-            #     sys.exit(1)
+            # Construct URLs and saving paths, save to dictionary
+            for wk in range(start_wk, end_wk):
+                url_in = {'url': ('{}/{}/{}/{}{}'.format(url, symbol, str(yr), str(wk),
+                                                         url_suffix)),
+                          'dir_path': join(store, 'fxcm', symbol, str(yr)),
+                          'file_path': join(store, 'fxcm', symbol, str(yr), str(wk) +
+                                            url_suffix)}
+                key = symbol+str(yr)+"_"+str(wk)
+                urls[key] = url_in
 
+    for key in urls:
+        dir_path = urls[key]['dir_path']
+        file_path = urls[key]['file_path']
+        url = urls[key]['url']
 
+        # Recursively creates the directory and does not raise an exception if
+        # the directory already exists. See: https://goo.gl/rn3q4E
+        pathlib.Path(dir_path).mkdir(parents = True, exist_ok = True)
+
+        # make the request
+        try:
+            time.sleep(12)
+            if not isfile(url):
+                print('Requesting: {}'.format(url))
+                r = requests.get(url, timeout = 60)
+                print('Response status: {}'.format(r.status_code))
+            else:
+                print('file {} already in store'.format(url))
+        except requests.exceptions.RequestException as e:
+            print(e)
+            # sys.exit(1)
+
+        err = []
+        if r.status_code == 200:
+            print('Saving file.'. format(file_path))
             # save the file in chunks
-            #chunk_size = 2000
-            #with open(save_to, 'wb') as f:
-            #    for chunk in r.iter_content(chunk_size):
-            #        f.write(chunk)
+            chunk_size = 5000
+            with open(file_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size):
+                    f.write(chunk)
+        else:
+            err.append(file_path)
 
-
-
+    print('==================================================')
+    print('Errors: {}'.format(err))
+    print('==================================================')
+    print('All file successfully downloaded')
 
 
 def format_to_sql_database():
@@ -135,7 +149,6 @@ def get_last_updated_price(db_session):
         print(instance)
 
 
-
 def to_do(instruments):
     # Create sql engine
     config = sql_config()
@@ -144,12 +157,11 @@ def to_do(instruments):
     new_engine = conn.create_engine()
 
     Session = sessionmaker()
-    Session.configure(bind=new_engine)
+    Session.configure(bind = new_engine)
 
     last_update = get_last_updated_price(Session())
 
-    #print(last_update)
-
+    # print(last_update)
 
 
 if __name__ == '__main__':
@@ -160,4 +172,3 @@ if __name__ == '__main__':
                       'USDCAD', 'USDCHF', 'USDJPY']
 
     get_datafiles()
-

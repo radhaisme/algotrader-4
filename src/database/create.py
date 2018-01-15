@@ -162,32 +162,30 @@ class StockDailyPrice(Base):
     volume = Column(Integer)
 
 
-class FxmcTickData(Base):
+class FxmcData(Base):
     """
     Tick Data from FXMC
     """
-    __tablename__ = 'fxmc_tick_data'
-    id_tick_fx_price = Column(Integer, primary_key=True)
+    __tablename__ = 'fxcm_data'
+    symbol = Column(String(32), ForeignKey('symbols.symbol'), primary_key=True)
+    price_date = Column(DateTime, primary_key=True)
     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
-    last_update = Column(DateTime)
-    symbol = Column(String(32), ForeignKey('symbols.symbol'))
-    price_date = Column(DateTime)
     bid = Column(Numeric(19, 6))
     ask = Column(Numeric(19, 6))
+    last_update = Column(DateTime)
 
 
-class OandaCandleData(Base):
+class OandaData(Base):
     """
     Tick Data from FXMC
     """
-    __tablename__ = 'oanda_5s_data'
-    id_tick_fx_price = Column(Integer, primary_key=True)
+    __tablename__ = 'oanda_data'
+    symbol = Column(String(32), ForeignKey('symbols.symbol'), primary_key=True)
+    price_date = Column(DateTime, primary_key=True)
     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
-    last_update = Column(DateTime)
-    symbol = Column(String(32), ForeignKey('symbols.symbol'))
-    price_date = Column(DateTime)
     bid = Column(Numeric(19, 6))
     ask = Column(Numeric(19, 6))
+    last_update = Column(DateTime)
 
 
 
@@ -257,51 +255,13 @@ def create_conn(**kwargs):
     return sqlalchemy.create_engine(instruction, echo=kwargs['echo'])
     
 #
-# def create_vendor(current_session, **kwargs):
-#     """
-#     Create/Update a vendor
-#     """
-#     # Checking if registered
-#     stmt = exists().where(DataVendor.name == kwargs['name'])
-#     qry =  current_session.query(stmt)
-#     is_registered = qry.scalar()
-#
-#     # DataVendor object
-#     # Parse created_date to Datetime
-#     created_date = datetime.strptime(kwargs['created_date'], '%Y-%m-%d')
-#     vendor_to_add = DataVendor(name = kwargs['name'], website = kwargs['website'], email = kwargs['email'],
-#                                created_date = created_date, last_updated_date = datetime.now())
-#
-#     if is_registered:
-#         # Registered vendor
-#         print('Data Vendor {} already exists.'.format(kwargs['name']))
-#         proceed_with_update = input('Proceed with update? (yes/no): ' )
-#
-#         if proceed_with_update == 'yes':
-#             # Delete previous entries and add new
-#             current_session.query(DataVendor).filter_by(name=kwargs['name'] ).delete()
-#             current_session.add(vendor_to_add)
-#             current_session.commit()
-#             print('Data Vendor {} updated.'.format(kwargs['name']))
-#         elif proceed_with_update == 'no':
-#             # Do nothing
-#             print('Update for {} skipped.'.format(kwargs['name']))
-#     else:
-#         # Create new vendor
-#         current_session.add(vendor_to_add)
-#         current_session.commit()
-#         print('New Data Vendor {} added to database.'.format(kwargs['name']))
-#
 #
 # def create_symbol(current_session, **kwargs):
 #     pass
 #
-#
-# def create_exchange(current_session, **kwargs):
-#     pass
 
 
-def create_new_schema():
+def update_schema():
     """
 
     Returns: A new database with the configuration given in the .conf file
@@ -336,9 +296,7 @@ def create_new_schema():
 
 if __name__ == '__main__':
     # Create a new database with the declarative schema written here
-    # ONLY use when you want to reinitialize the database
-    # BE CAUTIOUS THIS DELETE DATA
-    create_new_schema()
+    update_schema()
 
     
 
