@@ -1,5 +1,3 @@
-
-
 def price_to_string(price):
     return "{} ({}) {}/{}".format(price.instrument,
                                   price.time,
@@ -10,5 +8,5 @@ def price_to_string(price):
 
 def heartbeat_to_string(heartbeat):
     return "HEARTBEAT ({})".format(
-            heartbeat.time
-            )
+        heartbeat.time
+    )

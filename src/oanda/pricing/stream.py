@@ -6,7 +6,7 @@ def main():
     """
     Stream the prices for a list of instruments for the active account.
     """
-    show_heartbeats = False
+    show_heartbeats = True
 
     # Create empty context
     ctx = OandaContext()
@@ -20,8 +20,7 @@ def main():
     # api.set_stream_timeout(3)
 
     # Subscribe to the pricing stream
-    response = api.pricing.stream(account_id,
-                                  instruments = "EUR_USD,USD_CAD")
+    response = api.pricing.stream(account_id, instruments="EUR_USD,USD_CAD")
 
     # Print out each price as it is received
     for msg_type, msg in response.parts():

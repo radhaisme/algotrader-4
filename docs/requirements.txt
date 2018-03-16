@@ -1,9 +1,64 @@
-pyyaml==3.11
-tabulate==0.7.5
-requests==2.11.1
-ujson==1.35
-v20==3.0.14.0
-ymal
-v20
-
-mysql-connector-python==2.0.4
+(v20) C:\Users\Javier>conda list
+# packages in environment at C:\Users\Javier\Anaconda3\envs\v20:
+#
+# Name                    Version                   Build  Channel
+anyjson                   0.3.3            py36h1110a06_1
+arrow                     0.12.1                   py36_1
+asn1crypto                0.24.0                   py36_0
+babel                     2.5.3                    py36_0
+ca-certificates           2017.08.26           h94faf87_0
+certifi                   2018.1.18                py36_0
+cffi                      1.11.5           py36h945400d_0
+chardet                   3.0.4            py36h420ce6e_1
+colour                    0.1.5            py36h2a690ca_0
+cryptography              2.1.4            py36he1d7878_0
+cycler                    0.10.0           py36h009560c_0
+freetype                  2.8                  h51f8f2c_1
+furl                      1.0.1            py36ha781a78_0
+icc_rt                    2017.0.4             h97af966_0
+icu                       58.2                 ha66f8fd_1
+idna                      2.6              py36h148d497_1
+infinity                  1.4              py36hc319f29_0
+intel-openmp              2018.0.0             hd92c6cd_8
+intervals                 0.8.1                    py36_0
+jpeg                      9b                   hb83a4c4_2
+kiwisolver                1.0.1            py36h12c3424_0
+libpng                    1.6.34               h79bbb47_0
+matplotlib                2.2.0            py36h4dabdea_0
+mkl                       2018.0.1             h2108138_4
+mysql-connector-python    2.0.4                    py36_0
+numpy                     1.14.2           py36h5c71026_0
+openssl                   1.0.2n               h74b6da3_0
+orderedmultidict          0.7.11           py36h39edd80_0
+pandas                    0.22.0           py36h6538335_0
+passlib                   1.7.1                    py36_0
+phonenumbers              8.9.1                    py36_0
+pip                       9.0.1                    py36_5
+pycparser                 2.18             py36hd053e01_1
+pyopenssl                 17.5.0           py36h5b7d817_0
+pyparsing                 2.2.0            py36h785a196_1
+pyqt                      5.6.0            py36hb5ed885_5
+pysocks                   1.6.8                    py36_0
+python                    3.6.4                h0c2934d_3
+python-dateutil           2.7.0                    py36_0
+pytz                      2018.3                   py36_0
+qt                        5.6.2           vc14h6f8c307_12
+requests                  2.18.4           py36h4371aae_1
+setuptools                38.5.1                   py36_0
+sip                       4.18.1           py36h9c25514_2
+six                       1.11.0           py36h4db2310_1
+sqlalchemy                1.2.5            py36hfa6e2cd_0
+sqlalchemy-utils          0.33.0                   py36_0
+sqlite                    3.22.0               h9d3ae62_0
+tabulate                  0.8.2                    py36_0
+tornado                   5.0                      py36_0
+ujson                     1.35                      <pip>
+urllib3                   1.22             py36h276f60a_0
+v20                       3.0.18.16                 <pip>
+vc                        14                   h0510ff6_3
+vs2015_runtime            14.0.25123                    3
+wheel                     0.30.0           py36h6c3ec14_1
+win_inet_pton             1.0.1            py36he67d7fd_1
+wincertstore              0.2              py36h7fe50ca_0
+yaml                      0.1.7                hc54c509_2
+zlib                      1.2.11               h8395fce_2

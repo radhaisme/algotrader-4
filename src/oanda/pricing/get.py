@@ -20,9 +20,9 @@ def get_prices_once(instruments):
 
     # Query Oanda
     response = api.pricing.get(account_id,
-                               instruments = ','.join(instruments),
-                               since = None,
-                               includeUnitsAvailable = False)
+                               instruments=','.join(instruments),
+                               since=None,
+                               includeUnitsAvailable=False)
 
     # Populate answer dictionary with prices newer than the latest time
     # seen in a price
@@ -44,7 +44,6 @@ def yield_prices(instruments_list, poll_interval):
 
 
 if __name__ == "__main__":
-
     instrument_list = ["EUR_USD", "EUR_JPY", "GBP_USD"]
     my_prices = get_prices_once(instrument_list)
     print(my_prices)
