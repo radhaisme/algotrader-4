@@ -42,6 +42,7 @@ pysocks                   1.6.8                    py36_0
 python                    3.6.4                h0c2934d_3
 python-dateutil           2.7.0                    py36_0
 pytz                      2018.3                   py36_0
+pyyaml                    3.12             py36h1d1928f_1
 qt                        5.6.2           vc14h6f8c307_12
 requests                  2.18.4           py36h4371aae_1
 setuptools                38.5.1                   py36_0
