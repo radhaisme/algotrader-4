@@ -4,13 +4,10 @@ Created on 29 Dec 2017
 :author: Javier Garcia
 """
 import sqlalchemy
-from sqlalchemy.sql import exists
+from sqlalchemy import Column, Integer, Numeric, String, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Numeric, String, DateTime, Boolean, ForeignKey
-from sqlalchemy.orm import relationship, sessionmaker
-from datetime import datetime
+from sqlalchemy.orm import relationship
 from common.config import sql_config
-
 
 Base = declarative_base()
 
@@ -61,14 +58,14 @@ class SqlEngine:
                                                              self.port,
                                                              self.dbname)
         try:
-            engine = sqlalchemy.create_engine(instruction, echo = self.echo)
-            print('Engine created successfully.  --  '+str(engine))
+            engine = sqlalchemy.create_engine(instruction, echo=self.echo)
+            print('Engine created successfully.  --  ' + str(engine))
             return engine
         except:
             print(
-                    'There is a problem with the engine creation - Check configuration '
-                    'or '
-                    'server')
+                'There is a problem with the engine creation - Check configuration '
+                'or '
+                'server')
 
     def validate(self):
         """
@@ -94,7 +91,7 @@ class SqlEngine:
         if len(errors) > 0:
             print('Configuration file has error in:')
             for e in errors:
-                print('    - '+e)
+                print('    - ' + e)
         else:
             print('Configuration file is OK.')
 
@@ -177,7 +174,7 @@ class FxmcData(Base):
 
 class OandaData(Base):
     """
-    Tick Data from FXMC
+    Tick Data from Oanda
     """
     __tablename__ = 'oanda_data'
     symbol = Column(String(32), ForeignKey('symbols.symbol'), primary_key=True)
@@ -186,8 +183,6 @@ class OandaData(Base):
     bid = Column(Numeric(19, 6))
     ask = Column(Numeric(19, 6))
     last_update = Column(DateTime)
-
-
 
 
 # class EcoSymbol(Base):
@@ -214,13 +209,11 @@ class OandaData(Base):
 #     price_date = Column(DateTime)
 #     created_date = Column(DateTime)
 #     close_price = Column(Numeric(19,6))
-    
 
 def create_db(**kwargs):
     """
 
     """
-   
     instruction = '{0}+{1}://{2}:{3}@{4}:{5}'.format(kwargs['dialect'],
                                                      kwargs['connector'],
                                                      kwargs['user'],
@@ -242,18 +235,19 @@ def create_db(**kwargs):
 
 
 def create_conn(**kwargs):
-    '''
-    '''
+    """
+    """
     instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}'.format(kwargs['dialect'],
-                                                         kwargs['conector'],
+                                                         kwargs['connector'],
                                                          kwargs['user'],
                                                          kwargs['password'],
                                                          kwargs['server'],
                                                          kwargs['port'],
                                                          kwargs['dbname'])
-    
+
     return sqlalchemy.create_engine(instruction, echo=kwargs['echo'])
-    
+
+
 #
 #
 # def create_symbol(current_session, **kwargs):
@@ -297,8 +291,6 @@ def update_schema():
 if __name__ == '__main__':
     # Create a new database with the declarative schema written here
     update_schema()
-
-    
 
     # Session = sessionmaker(bind=conn)
     # session = Session()

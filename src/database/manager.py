@@ -7,7 +7,7 @@ Created on 29 Dec 2017
 from sqlalchemy import create_engine
 from sqlalchemy import MetaData
 from sqlalchemy.exc import SQLAlchemyError
-from oanda_common import config
+
 
 
 class DB:

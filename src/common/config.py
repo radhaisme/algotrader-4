@@ -4,7 +4,7 @@ import yaml
 ###############################################################
 # ALL CONFIG SELECTIONS FROM HERE
 ###############################################################
-# TODO: Enviromental variable reading is not working in the remote ubuntu server, with this.
+# TODO: Environmental variable reading is not working in the remote ubuntu server, with this.
 # configuration file is defined at environmental variable 'TRADE_CONF' that must
 # be already set up.
 # CONFIG = os.environ['TRADE_CONF']
