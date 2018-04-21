@@ -26,7 +26,8 @@ def get_datafiles(list_to_download, store_path):
     At the moment the server does not require authentication.
 
     Args:
-        symbol: One od the available currency pairs in format XXXYYY
+        list_to_download:
+        store_path:
         year: since 2015
         week: week of the year
 
@@ -37,11 +38,11 @@ def get_datafiles(list_to_download, store_path):
 
     # This is the base url and the file extension
     url = fxcm_data_path()
-    store = pathlib.Path(store_path)
+    store_path = pathlib.Path(store_path)
     url_suffix = '.csv.gz'
 
     # Set the dates
-    start_dt = datetime.date(2018, 1, 1)
+    start_dt = datetime.date(2015, 1, 1)
     end_dt = datetime.date(2018, 3, 30)
 
     # Dates
@@ -56,6 +57,7 @@ def get_datafiles(list_to_download, store_path):
             if start_year == end_year:
                 start_wk = start_dt.isocalendar()[1]
                 end_wk = end_dt.isocalendar()[1]
+
             else:
                 # When more than a year - first year
                 if yr == start_year:
@@ -72,8 +74,8 @@ def get_datafiles(list_to_download, store_path):
 
             # Construct URLs and saving paths. Save to dictionary
             for wk in range(start_wk, end_wk):
-                data_folder = store / symbol / str(yr)
-                file_name = str(wk) + url_suffix
+                data_folder = store_path / symbol / str(yr)
+                file_name = symbol + '_' + str(yr) + '_' + str(wk) + url_suffix
 
                 url_in = {'url': ('{}/{}/{}/{}{}'.format(url, symbol, str(yr), str(wk),
                                                          url_suffix)),
@@ -99,7 +101,7 @@ def get_datafiles(list_to_download, store_path):
             sys.exit()
 
         try:
-            time.sleep(2)
+            #time.sleep(2)
             # Check if file already exist
             if not pathlib.Path.is_file(file_path):
                 # make the request
@@ -148,7 +150,6 @@ def clean_fxmc_file(original_path, clean_path):
     # Get the file list of the clean files, if any.
     clean_dir_path = pathlib.Path(clean_path)
     clean_files = list(clean_dir_path.glob('**/*.gz'))
-    total_clean_files = len(clean_files)
 
     counter = 0
     for each_file in original_files:
@@ -172,11 +173,20 @@ def clean_fxmc_file(original_path, clean_path):
                 f.write(data.decode('utf-8').replace('\x00', '').encode('utf-8'))
 
             counter += 1
-            print(
-                'Doing {} out of of {} - {:.3%}'.format(counter, total_original_files, counter / total_original_files))
+            print('Doing {} out of of {} - {:.3%}'.format(counter, total_original_files,
+                  counter / total_original_files))
+            print('File: {}'.format(clean_file_path))
         else:
             counter += 1
-            print('File {} already in store'.format(counter))
+            print('File {} already in store'.format(clean_file_path))
+
+
+def check_file_integrity(the_file):
+    """
+    Check the file integrity of compressed files
+    Returns:
+    """
+    pass
 
 
 def format_to_sql_database(file_path):
@@ -186,21 +196,9 @@ def format_to_sql_database(file_path):
 
     """
     pass
-    # chunksize = 100000
-    # for df in pd.read_csv(file_path + file_name, chunksize=chunksize, iterator=True, compression='gzip'):
-    #    print(df)
-
-
-def check_local_db(instrument):
-    """
-
-    Args:
-        instrument:
-
-    Returns: last_updated_date
-
-    """
-    pass
+    chunksize = 100000
+    for df in pd.read_csv(file_path + file_name, chunksize=chunksize, iterator=True, compression='gzip'):
+       print(df)
 
 
 def get_last_updated_price(db_session):
@@ -229,20 +227,18 @@ def to_do(instruments):
 if __name__ == '__main__':
 
     # 1. Download files
-    symbols = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
-               'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
-               'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
-               'USDCAD', 'USDCHF', 'USDJPY']
-    store_path = "/media/sf_D_DRIVE/Trading/data/fxcm"
-    #get_datafiles(list_to_download=symbols)
+    #symbols = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
+    #           'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
+    #           'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
+    #           'USDCAD', 'USDCHF', 'USDJPY']
+    store = "/media/sf_D_DRIVE/Trading/data/fxcm"
+    # get_datafiles(list_to_download=symbols, store_path=store)
 
     # 2. Clean the files for Null Characters
     saving_dir_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
-    # clean_fxmc_file(store_path, saving_dir_path)
+    clean_fxmc_file(original_path=store, clean_path=saving_dir_path)
 
-    # 3. Format and upload to securities master DB
-    file_to_save = "/media/sf_D_DRIVE/Trading/data/clean_fxcm/EURUSD/2018/5.csv.gz"
-
-
+    # 3. Check files integrity after the clean up.
+    #file_to_check = "/media/sf_D_DRIVE/Trading/data/clean_fxcm/EURUSD/2018/5.csv.gz"
 
 

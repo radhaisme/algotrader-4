@@ -5,12 +5,13 @@ Created on 29 Dec 2017
 """
 import sqlalchemy
 from sqlalchemy import Column, Integer, Numeric, String, DateTime, ForeignKey
+from sqlalchemy.dialects import mysql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+
 from common.config import sql_config
 
 Base = declarative_base()
-
 
 class SqlEngine:
     """
@@ -50,15 +51,15 @@ class SqlEngine:
         """
         Initialize engine to MySQL database for a given configuration
         """
-        instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}'.format(self.dialect,
-                                                             self.connector,
-                                                             self.user,
-                                                             self.password,
-                                                             self.server,
-                                                             self.port,
-                                                             self.dbname)
+        instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}?charset=utf8mb4'.format(self.dialect,
+                                                                             self.connector,
+                                                                             self.user,
+                                                                             self.password,
+                                                                             self.server,
+                                                                             self.port,
+                                                                             self.dbname)
         try:
-            engine = sqlalchemy.create_engine(instruction, echo=self.echo)
+            engine = sqlalchemy.create_engine(instruction, echo=self.echo, encoding="utf8")
             print('Engine created successfully.  --  ' + str(engine))
             return engine
         except:
@@ -170,6 +171,9 @@ class FxmcData(Base):
     bid = Column(Numeric(19, 6))
     ask = Column(Numeric(19, 6))
     last_update = Column(DateTime)
+    # For reference: the url of the source file used in the last update
+    # https://stackoverflow.com/a/219664/3512107
+    source_file = Column(mysql.VARCHAR(2083))
 
 
 class OandaData(Base):

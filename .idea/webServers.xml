@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="64a2b54a-b8a2-4d88-b886-455fc60e0e1e" name="BSK Development Server" url="http://192.168.66.10">
+        <fileTransfer host="192.168.66.10" port="22" rootFolder="/home/bsk" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
