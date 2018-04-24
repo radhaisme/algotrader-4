@@ -66,5 +66,5 @@ def zero_bytes_files(dir_path, action=None):
 
 if __name__ == '__main__':
     my_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
-    #rename_files(my_path)
+    # rename_files(my_path)
     zero_bytes_files(my_path, action='print')

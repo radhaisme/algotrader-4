@@ -7,17 +7,15 @@ AUDCAD,AUDCHF,AUDJPY,AUDNZD,CADCHF,EURAUD,EURCHF,EURGBP,EURJPY
 EURUSD,GBPCHF,GBPJPY,GBPNZD,GBPUSD,NZDCAD,NZDCHF.NZDJPY,NZDUSD
 USDCAD,USDCHF,USDJPY
 """
-import datetime
 import gzip
 import pathlib
 import sys
-import time
-
+import datetime
+import pandas as pd
 import requests
-from sqlalchemy.orm import sessionmaker
 
-from common.config import sql_config, fxcm_data_path
-from database.create import SqlEngine
+from common.config import fxcm_data_path
+from database.create import securities_master_engine as engine
 
 
 def get_datafiles(list_to_download, store_path):
@@ -181,64 +179,100 @@ def clean_fxmc_file(original_path, clean_path):
             print('File {} already in store'.format(clean_file_path))
 
 
-def check_file_integrity(the_file):
-    """
-    Check the file integrity of compressed files
-    Returns:
-    """
-    pass
-
-
-def format_to_sql_database(file_path):
+def prepare_data_for_securities_master(file_path):
     """
     Opens a file downloaded from FXMC and format it to upload to Securities Master database
-    Returns:
+    Returns: pandas DF
 
     """
-    pass
-    chunksize = 100000
-    for df in pd.read_csv(file_path + file_name, chunksize=chunksize, iterator=True, compression='gzip'):
-       print(df)
+    # Something to read when working with a lot of data
+    # https://www.dataquest.io/blog/pandas-big-data/
+
+    df = pd.read_csv(filepath_or_buffer=file_path,
+                     compression='gzip',
+                     sep=',',
+                     skiprows=1,
+                     names=['price_datetime', 'bid', 'ask'],
+                     parse_dates=[0],
+                     date_parser=pd.to_datetime,
+                     index_col=[0])
+
+    df['last_update'] = datetime.datetime.now()
+
+    return df
 
 
-def get_last_updated_price(db_session):
-    s = db_session
-    print(s)
+def load_to_securities_master(mysql_engine, data_to_load):
 
-    for instance in s.query('symbols').filter_by(symbol='EURUSD'):
-        print(instance)
+    table_name = "AUDCAD_fxcm"
+
+    data_to_load.to_sql(con=mysql_engine,
+                        name=table_name,
+                        if_exists='append',
+                        index=True,
+                        chunksize=100000)
 
 
-def to_do(instruments):
-    # Create sql engine
-    config = sql_config()
-    conn = SqlEngine()
-    conn.load_configuration(**config)
-    new_engine = conn.create_engine()
+def load_to_securities_database2(mysql_engine, csv_to_load):
+    from sqlalchemy.orm import sessionmaker
 
-    Session = sessionmaker()
-    Session.configure(bind=new_engine)
+    table_name = "AUDCAD_fxcm"
 
-    last_update = get_last_updated_price(Session())
+    SessionMaker = sessionmaker(bind=mysql_engine)
+    session = SessionMaker()
 
-    # print(last_update)
+    sql_stat="LOAD DATA LOCAL INFILE " + csv_to_load
+    "INTO TABLE settles "
+    "FIELDS TERMINATED BY ',' "
+    "lines terminated by '\n' "
+    "IGNORE 1 LINES "
+    "(price_date_utc, bid, ask, last_update_utc);"
+
+    session.execute(sql_stat)
+    session.flush()
+    engine.dispose()
+
+
+def main():
+    my_engine = engine()
+
+    my_path = "/media/sf_D_DRIVE/Trading/data/example_data/AUDCAD/"
+    my_path = pathlib.Path(my_path)
+    all_files = my_path.glob('**/*.gz')
+
+    count = 0
+    for each_file in all_files:
+        print('Working on {}'.format(each_file))
+        data = prepare_data_for_securities_master(each_file)
+        print(data.head())
+        print('Data ready')
+        load_to_securities_master(mysql_engine=my_engine, data_to_load=data)
+        print('Data imported')
+        count += 1
+        print(count)
+        print('######################################################')
+
+    print('All Done !')
 
 
 if __name__ == '__main__':
-
     # 1. Download files
     #symbols = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
     #           'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
     #           'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
     #           'USDCAD', 'USDCHF', 'USDJPY']
-    store = "/media/sf_D_DRIVE/Trading/data/fxcm"
+    #store = "/media/sf_D_DRIVE/Trading/data/fxcm"
     # get_datafiles(list_to_download=symbols, store_path=store)
 
     # 2. Clean the files for Null Characters
-    saving_dir_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
-    clean_fxmc_file(original_path=store, clean_path=saving_dir_path)
+    #saving_dir_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
+    #clean_fxmc_file(original_path=store, clean_path=saving_dir_path)
 
     # 3. Check files integrity after the clean up.
-    #file_to_check = "/media/sf_D_DRIVE/Trading/data/clean_fxcm/EURUSD/2018/5.csv.gz"
+    main()
+
+
+
+
 
 

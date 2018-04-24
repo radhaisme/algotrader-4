@@ -29,7 +29,7 @@ class SqlEngine:
         self.user = None
         self.password = None
         self.dbname = None
-        self.echo = True
+        self.echo = False
         self.path = None
 
     def load_configuration(self, **kwargs):
@@ -51,13 +51,13 @@ class SqlEngine:
         """
         Initialize engine to MySQL database for a given configuration
         """
-        instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}?charset=utf8mb4'.format(self.dialect,
-                                                                             self.connector,
-                                                                             self.user,
-                                                                             self.password,
-                                                                             self.server,
-                                                                             self.port,
-                                                                             self.dbname)
+        instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}?charset=utf8'.format(self.dialect,
+                                                                          self.connector,
+                                                                          self.user,
+                                                                          self.password,
+                                                                          self.server,
+                                                                          self.port,
+                                                                          self.dbname)
         try:
             engine = sqlalchemy.create_engine(instruction, echo=self.echo, encoding="utf8")
             print('Engine created successfully.  --  ' + str(engine))
@@ -170,10 +170,35 @@ class FxmcData(Base):
     id_vendor = Column(Integer, ForeignKey('vendors.id_vendor'))
     bid = Column(Numeric(19, 6))
     ask = Column(Numeric(19, 6))
-    last_update = Column(DateTime)
+    last_update = Column(mysql.DATETIME(3))
     # For reference: the url of the source file used in the last update
     # https://stackoverflow.com/a/219664/3512107
     source_file = Column(mysql.VARCHAR(2083))
+
+
+class AUDCADfxcm(Base):
+    """
+    Tick Data from FXMC
+    """
+    __tablename__ = 'AUDCAD_fxcm'
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    price_datetime = Column(mysql.DATETIME(3))
+    bid = Column(mysql.DECIMAL(19, 6))
+    ask = Column(mysql.DECIMAL(19, 6))
+    last_update = Column(mysql.DATETIME(3))
+
+
+class AUDCADfxcm2(Base):
+    """
+    Tick Data from FXMC
+    """
+    __tablename__ = 'AUDCAD_fxcm2'
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    price_datetime = Column(mysql.DATETIME(6))
+    bid = Column(mysql.DECIMAL(19, 6))
+    ask = Column(mysql.DECIMAL(19, 6))
+    last_update_utc = Column(mysql.DATETIME(6))
+
 
 
 class OandaData(Base):
@@ -238,25 +263,26 @@ def create_db(**kwargs):
         print('Database already exist.')
 
 
-def create_conn(**kwargs):
-    """
-    """
-    instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}'.format(kwargs['dialect'],
-                                                         kwargs['connector'],
-                                                         kwargs['user'],
-                                                         kwargs['password'],
-                                                         kwargs['server'],
-                                                         kwargs['port'],
-                                                         kwargs['dbname'])
-
-    return sqlalchemy.create_engine(instruction, echo=kwargs['echo'])
-
-
+# def create_conn(**kwargs):
+#     """
+#     """
+#     instruction = '{0}+{1}://{2}:{3}@{4}:{5}/{6}'.format(kwargs['dialect'],
+#                                                          kwargs['connector'],
+#                                                          kwargs['user'],
+#                                                          kwargs['password'],
+#                                                          kwargs['server'],
+#                                                          kwargs['port'],
+#                                                          kwargs['dbname'])
 #
-#
-# def create_symbol(current_session, **kwargs):
-#     pass
-#
+#     return sqlalchemy.create_engine(instruction, echo=kwargs['echo'])
+
+
+def securities_master_engine():
+    config = sql_config()
+    # Create engine that connect to the new database
+    conn = SqlEngine()
+    conn.load_configuration(**config)
+    return conn.create_engine()
 
 
 def update_schema():

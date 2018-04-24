@@ -6,6 +6,7 @@
         <serverdata>
           <mappings>
             <mapping deploy="/bsk_trading" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/athena" local="$PROJECT_DIR$/../athena" web="/" />
           </mappings>
         </serverdata>
       </paths>
