@@ -5,9 +5,9 @@ import yaml
 # ALL CONFIG SELECTIONS FROM HERE
 ###############################################################
 # TODO: Environmental variable reading is not working in the remote ubuntu server, with this.
-# configuration file is defined at environmental variable 'TRADE_CONF' that must
-# be already set up.
-# CONFIG = os.environ['TRADE_CONF']
+# TODO: configuration file is defined at environmental variable 'TRADE_CONF' that must
+# TODO: be already set up.
+# TODO: CONFIG = os.environ['TRADE_CONF']
 
 # TODO point to the configuration file directly, must review to work with a ENV VAR
 CONFIG = '/home/bsk/trading.conf'
@@ -36,9 +36,3 @@ def fxcm_data_path():
 def influx_config():
     stream = open(os.path.expanduser(CONFIG), 'r')
     return yaml.load(stream)['influx']
-
-
-if __name__ == "__main__":
-    x = oanda_config()
-    print(x)
-
