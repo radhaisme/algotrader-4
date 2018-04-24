@@ -52,13 +52,8 @@ class DB:
         return meta
 
 
-if __name__ == '__main__':
 
-    db = DB('forecast')
 
-    sql = "SELECT score FROM scores"
-    cur = db.query(sql)
-    print(cur.fetchall())
-    
+
     
     
