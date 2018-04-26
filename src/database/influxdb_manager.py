@@ -4,13 +4,12 @@
 
 import pathlib
 import time
+
 import datetime
 import pandas as pd
-
-from pytz import utc
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
-
+from pytz import utc
 from common.config import influx_config
 
 
@@ -108,10 +107,8 @@ def load_multiple_files(db_client, dir_path):
 
     for each_file in files:
         init_preparing_time = time.time()
+
         print('Working on: {}'.format(each_file))
-
-        symbol = each_file.parts[-1][0:6]
-
         df = prepare_data_for_securities_master(each_file)
 
         end_preparing_time = time.time()
@@ -120,8 +117,8 @@ def load_multiple_files(db_client, dir_path):
         print('Data ready to load')
         print('Time processing file: {}'.format(time_str))
 
+        symbol = each_file.parts[-1][0:6]
         write_to_db(db_client, df, symbol)
-
         end_loading_time = time.time()
         delta_loading = end_loading_time - end_preparing_time
         time_str = time.strftime("%H:%M:%S", time.gmtime(delta_loading))
@@ -139,19 +136,21 @@ def query_to_db(db_client):
 if __name__ == '__main__':
     start_time = time.time()
 
-    my_client = client = influx_client(client_type='dataframe')
+    my_client = influx_client(client_type='dataframe')
+
     my_dir = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
     load_multiple_files(my_client, my_dir)
 
-    #gen = query_to_db().get_points()
-    #for x in gen:
+    # gen = query_to_db().get_points()
+    # for x in gen:
     #    print(x)
 
-    #my_path = "/media/sf_D_DRIVE/Trading/data/example_data/small.csv.gz"
-    #x = prepare_data_for_securities_master(my_path)
-    #print(x.head(10))
-    #write_to_db(my_client, x)
-    #ans = query_to_db(my_client)
-    #print(ans)
+    # my_path = "/media/sf_D_DRIVE/Trading/data/example_data/small.csv.gz"
+    # x = prepare_data_for_securities_master(my_path)
+    # print(x.head(10))
+    # write_to_db(my_client, x)
+    # ans = query_to_db(my_client)
+    # print(ans)
 
-    print("Running for : {:0>8} ".format(datetime.timedelta(seconds=(time.time() - start_time))))
+    time_str = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
+    print("Running for : {} ".format(time_str))
