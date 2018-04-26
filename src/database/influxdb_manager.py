@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+# https://medium.com/netflix-techblog/scaling-time-series-data-storage-part-i-ec2b6d44ba39
+# https://www.influxdata.com/blog/influxdb-vs-cassandra-time-series/
 
 import pathlib
-
 import time
+import datetime
 import pandas as pd
+
+from pytz import utc
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 
@@ -48,23 +52,66 @@ def prepare_data_for_securities_master(file_path):
                      skiprows=1,
                      names=['price_datetime', 'bid', 'ask'],
                      parse_dates=[0],
-                     date_parser=pd.to_datetime,
-                     index_col=[0])
-
-    #df['last_update'] = datetime.datetime.now()
-
+                     date_parser=my_date_parser,
+                     index_col=[0],
+                     float_precision='high',
+                     engine='c')
     return df
 
 
-def write_to_db():
-    my_path = "/media/sf_D_DRIVE/Trading/data/example_data/AUDCAD"
-    client = influx_client(client_type='dataframe')
-    my_path = pathlib.Path(my_path)
-    files = my_path.glob('**/*.gz')
+def my_date_parser(date_string):
+    """
+    The default parser or pd.to_datetime are very slow.
+    Since the input format is always the same better to do it manually
+
+    https://stackoverflow.com/a/29882676/3512107
+    https://stackoverflow.com/a/29882676/3512107
+
+    Args:
+        date_string: in the format MM/DD/YYYY HH:MM:SS.mmm
+
+    Returns: datetime object with format YYYY-MM-DD HH:MM:SS.mmm
+
+    """
+    return datetime.datetime(int(date_string[6:10]),
+                             int(date_string[0:2]),
+                             int(date_string[3:5]),
+                             int(date_string[11:13]),
+                             int(date_string[14:16]),
+                             int(date_string[17:19]),
+                             int(date_string[20:23]) * 1000,
+                             tzinfo=utc)
+
+
+def write_to_db(db_client, df, symbol):
+
+    protocol = 'json'
+    field_columns = ['bid', 'ask']
+    tags = {'symbol': symbol,
+            'provider': 'fxcm'}
+    table = 'fx_tick'
+
+    db_client.write_points(dataframe=df,
+                           measurement=table,
+                           protocol=protocol,
+                           field_columns=field_columns,
+                           tags=tags,
+                           time_precision='ms',
+                           numeric_precision='full',
+                           batch_size=50000)
+
+
+def load_multiple_files(db_client, dir_path):
+
+    dir_path = pathlib.Path(dir_path)
+    files = dir_path.glob('**/*.gz')
 
     for each_file in files:
         init_preparing_time = time.time()
         print('Working on: {}'.format(each_file))
+
+        symbol = each_file.parts[-1][0:6]
+
         df = prepare_data_for_securities_master(each_file)
 
         end_preparing_time = time.time()
@@ -73,20 +120,7 @@ def write_to_db():
         print('Data ready to load')
         print('Time processing file: {}'.format(time_str))
 
-        protocol = 'json'
-        field_columns = ['bid', 'ask']
-        tags = {'symbol': 'AUDCAD',
-                'provider': 'fxcm'}
-        table = 'fx_tick_data'
-
-        client.write_points(dataframe=df,
-                            measurement=table,
-                            protocol=protocol,
-                            field_columns=field_columns,
-                            tags=tags,
-                            time_precision='ms',
-                            numeric_precision=None,
-                            batch_size=50000)
+        write_to_db(db_client, df, symbol)
 
         end_loading_time = time.time()
         delta_loading = end_loading_time - end_preparing_time
@@ -96,20 +130,28 @@ def write_to_db():
         print('##############################################################')
 
 
-def query_to_db():
-    query = "SELECT *::field from " + '"fx_tick_data" WHERE "provider" = ' + "'fxcm'"
-    print(query)
-    client = influx_client(client_type='client')
-
-    ans = client.query(query=query, epoch=None)
+def query_to_db(db_client):
+    query = "SELECT *::field from " + '"fx_tick" WHERE "provider" = ' + "'fxcm' LIMIT 10"
+    ans = db_client.query(query=query, epoch=None)
     return ans
 
 
 if __name__ == '__main__':
+    start_time = time.time()
 
-    write_to_db()
-
+    my_client = client = influx_client(client_type='dataframe')
+    my_dir = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
+    load_multiple_files(my_client, my_dir)
 
     #gen = query_to_db().get_points()
     #for x in gen:
     #    print(x)
+
+    #my_path = "/media/sf_D_DRIVE/Trading/data/example_data/small.csv.gz"
+    #x = prepare_data_for_securities_master(my_path)
+    #print(x.head(10))
+    #write_to_db(my_client, x)
+    #ans = query_to_db(my_client)
+    #print(ans)
+
+    print("Running for : {:0>8} ".format(datetime.timedelta(seconds=(time.time() - start_time))))
