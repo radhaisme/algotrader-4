@@ -15,7 +15,7 @@ import pandas as pd
 import requests
 
 from common.config import fxcm_data_path
-from database.mysql_manager import securities_master_engine as engine
+from mysql_manager import securities_master_engine as engine
 
 
 def get_datafiles(list_to_download, store_path):
