@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="BSK Development Server" stopOnFirstError="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="BSK Development" stopOnFirstError="true">
     <serverData>
-      <paths name="BSK Development Server">
+      <paths name="BSK Development">
         <serverdata>
           <mappings>
-            <mapping deploy="/bsk_trading" local="$PROJECT_DIR$" web="/" />
-            <mapping deploy="/athena" local="$PROJECT_DIR$/../athena" web="/" />
+            <mapping deploy="/home/bsk/athena" local="$PROJECT_DIR$/../athena" web="/" />
+            <mapping deploy="/home/bsk/bsk_trading" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

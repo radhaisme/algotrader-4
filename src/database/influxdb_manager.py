@@ -138,19 +138,20 @@ if __name__ == '__main__':
 
     my_client = influx_client(client_type='dataframe')
 
-    my_dir = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
+    my_dir = "/media/sf_Trading/data/clean_fxcm"
     load_multiple_files(my_client, my_dir)
+
 
     # gen = query_to_db().get_points()
     # for x in gen:
     #    print(x)
 
-    # my_path = "/media/sf_D_DRIVE/Trading/data/example_data/small.csv.gz"
-    # x = prepare_data_for_securities_master(my_path)
-    # print(x.head(10))
-    # write_to_db(my_client, x)
-    # ans = query_to_db(my_client)
-    # print(ans)
+    #my_path = "/media/sf_Trading/data/example_data/small.csv.gz"
+    #x = prepare_data_for_securities_master(my_path)
+    #print(x.head(10))
+    #write_to_db(my_client, x, 'eurusd')
+    #ans = query_to_db(my_client)
+    #print(ans)
 
-    time_str = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
-    print("Running for : {} ".format(time_str))
+    x = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
+    print("Running for : {} ".format(x))
