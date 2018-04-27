@@ -1,9 +1,10 @@
-
+# -*- coding: utf-8 -*-
 
 from common.config import influx_config
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 from pprint import pprint
+
 
 def influx_client(client_type='client'):
     """
@@ -28,18 +29,25 @@ def influx_client(client_type='client'):
         return DataFrameClient(host, port, user, password, dbname)
 
 
-def rows_per_serie():
-    table = '"fx_tick"'
-    symbol = "'AUDCAD'"
-    q = "SELECT * FROM " + table +' WHERE "symbol" = ' + symbol + ' LIMIT 100'
+def available_series(measurement='fx_tick', group_by='symbol'):
+    """
 
-    print(q)
-    ans = influx_client().query(query=q).get_points()
+    Args:
+        measurement: "table" to query
+        group_by: tag to group by
 
-    for x in ans:
-        pprint(x)
+    Returns: list of available series within the measurement
+
+    """
+
+    cql = "SELECT COUNT(bid) FROM \"{}\" GROUP BY {}".format(measurement, group_by)
+
+    print(cql)
+    ans = influx_client().query(query=cql)
+
+    pprint(ans)
+
 
 
 if __name__ == '__main__':
-
-    rows_per_serie()
+    available_series()

@@ -101,12 +101,6 @@ def load_multiple_files(db_client, dir_path):
         print('##############################################################')
 
 
-def query_to_db(db_client):
-    query = "SELECT *::field from " + '"fx_tick" WHERE "provider" = ' + "'fxcm' LIMIT 10"
-    ans = db_client.query(query=query, epoch=None)
-    return ans
-
-
 if __name__ == '__main__':
     start_time = time.time()
 
