@@ -3,7 +3,7 @@
 from common.config import influx_config
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
-
+from pprint import pprint
 
 def influx_client(client_type='client'):
     """
@@ -31,11 +31,13 @@ def influx_client(client_type='client'):
 def rows_per_serie():
     table = '"fx_tick"'
     symbol = "'AUDCAD'"
-    q = "SELECT COUNT(bid) FROM " + table +' WHERE "symbol" = ' + symbol
+    q = "SELECT * FROM " + table +' WHERE "symbol" = ' + symbol + ' LIMIT 100'
 
     print(q)
-    ans = influx_client().query(query=q)
-    print(ans)
+    ans = influx_client().query(query=q).get_points()
+
+    for x in ans:
+        pprint(x)
 
 
 if __name__ == '__main__':
