@@ -57,6 +57,16 @@ def my_date_parser(date_string):
 
 
 def write_to_db(db_client, df, symbol):
+    """
+
+    Args:
+        db_client:
+        df:
+        symbol:
+
+    Returns:
+
+    """
 
     protocol = 'json'
     field_columns = ['bid', 'ask']
@@ -75,7 +85,15 @@ def write_to_db(db_client, df, symbol):
 
 
 def load_multiple_files(db_client, dir_path):
+    """
 
+    Args:
+        db_client:
+        dir_path:
+
+    Returns:
+
+    """
     dir_path = pathlib.Path(dir_path)
     files = dir_path.glob('**/*.gz')
 
