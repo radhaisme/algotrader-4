@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="BSK Development" stopOnFirstError="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="BSK Development" stopOnFirstError="true" uploadOnCheckin="0b94e155-f11d-46b2-80e0-e331e84b4108">
     <serverData>
       <paths name="BSK Development">
         <serverdata>
@@ -11,6 +11,7 @@
         </serverdata>
       </paths>
     </serverData>
+    <option name="myUploadOnCheckinName" value="BSK Development" />
     <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

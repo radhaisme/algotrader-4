@@ -1,27 +1,27 @@
 
 import queue
-
+import datetime
 from athena.price_handlers.base import AbstractTickPriceHandler
 from databases.influx_manager import influx_client
+from common.utilities import iter_islast
 
 
 class HistoricTickPriceHandler(AbstractTickPriceHandler):
     """
     HistoricTickPriceHandler is designed to read the Securities Master Database
     running on Influxdb and query for each requested symbol and time,
-    providing an interface to obtain the "latest" bar in a manner identical to a live
+    providing an interface to obtain the "latest" tick in a manner identical to a live
     trading interface.
 
     """
 
-    def __init__(self, events_queue, db_client, symbols_list, data_provider, start_time, end_time):
+    def __init__(self, db_client, symbols_list, data_provider, start_time, end_time):
         self.db_client = db_client
-        self.events_queue = events_queue
         self.symbols_list = symbols_list
         self.data_provider = data_provider
         self.start_time = start_time
         self.end_time = end_time
-        self.symbol_data = {}
+        self._tick_data = ''
 
         self._query_the_data(self.symbols_list, self.start_time, self.end_time)
 
@@ -37,51 +37,51 @@ class HistoricTickPriceHandler(AbstractTickPriceHandler):
         Returns:
 
         """
+        # CQL statement constructor for multiple symbols
 
-        symbol_str = "AND (symbol=\'{}\' OR symbol=\'{}\')".format(symbols_list[0], symbols_list[1])
+        all_symbols = ""
+        for each_symbol, islast in iter_islast(symbols_list):
+            str_to_add = "symbol=\'{}\'".format(each_symbol)
+            if islast:
+                all_symbols += str_to_add
+            else:
+                all_symbols = all_symbols + str_to_add + ' OR '
 
-        q_statement1 = "SELECT * " \
-                       "FROM \"{}\" " \
-                       "WHERE provider=\'{}\' " \
-                       "AND time >= \'{}\' " \
-                       "AND time < \'{}\' ".format(table,
-                                                   self.data_provider,
-                                                   s_time,
-                                                   e_time)
+        final_statement = "SELECT * " \
+                          "FROM \"{}\" " \
+                          "WHERE provider=\'{}\' " \
+                          "AND time >= \'{}\' " \
+                          "AND time < \'{}\' ".format(table,
+                                                      self.data_provider,
+                                                      s_time,
+                                                      e_time)
 
+        final_statement = final_statement + " AND (" + all_symbols + ")"
 
-
-        final_statement = q_statement1 + " " + symbol_str
-        print(final_statement)
         clients = self.db_client
-        rs = clients.query(final_statement)
-        print(rs)
-        return rs.get_points()
+        self._tick_data = clients.query(final_statement).get_points()
 
-
-    def get_symbol_ticks(self, symbol):
+    def get_new_tick(self):
         """
-        Tick data for one of the symbols in the input list
-        Args:
-            symbol:
-
-        Returns: tick price generator
-
+        Returns the latest tick from the data feed.
         """
-        return self.symbol_data[symbol]
+        return self._tick_data
 
-    def get_all_sync__ticks(self):
-        pass
 
 
 if __name__ == '__main__':
 
     my_queue = queue.Queue()
     client = influx_client()
-    symbols = ['EURUSD', 'AUDCAD', 'USDJPY']
+    symbols = ['EURUSD', 'AUDCAD', 'AUDJPY', 'CADCHF', 'EURGBP']
     provider = 'fxcm'
-    s_date = '2018-02-01 15:01:00.000'
-    e_date = '2018-02-01 15:01:01.000'
+    s_date = '2018-02-01 15:00:00.000'
+    e_date = '2018-02-01 15:00:10.000'
 
-    x = HistoricTickPriceHandler(my_queue, client, symbols, provider, s_date, e_date)
+    ticks = HistoricTickPriceHandler(client, symbols, provider, s_date, e_date)
 
+
+    c = 0
+    for tick in ticks._tick_data:
+        print("{}: {}".format(c, tick))
+        c += 1

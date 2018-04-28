@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from common.config import influx_config
+from pprint import pprint
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
-from pprint import pprint
+from common.config import influx_config
 
 
 def influx_client(client_type='client'):
@@ -29,9 +29,9 @@ def influx_client(client_type='client'):
         return DataFrameClient(host, port, user, password, dbname)
 
 
-def available_series(measurement='fx_tick', group_by='symbol'):
+def available_series(measurement='fx_tick'):
     """
-
+    List of tuples (symbol, provider) with available series in a measurement
     Args:
         measurement: "table" to query
         group_by: tag to group by
@@ -40,14 +40,15 @@ def available_series(measurement='fx_tick', group_by='symbol'):
 
     """
 
-    cql = "SELECT COUNT(bid) FROM \"{}\" GROUP BY {}".format(measurement, group_by)
+    cql = "SELECT LAST(bid), symbol, provider " \
+          "FROM \"{}\" " \
+          "GROUP BY symbol".format(measurement)
 
-    print(cql)
     ans = influx_client().query(query=cql)
+    return [(x[0].get('symbol'), x[0].get('provider')) for x in ans]
 
-    pprint(ans)
 
 
 
 if __name__ == '__main__':
-    available_series()
+    pprint(available_series())

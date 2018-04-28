@@ -64,6 +64,22 @@ def zero_bytes_files(dir_path, action=None):
     return zeros
 
 
+def iter_islast(iterable):
+    """
+    iter_islast(iterable) -> generates (item, islast) pairs
+    https://code.activestate.com/recipes/392015-finding-the-last-item-in-a-loop/
+    Generates pairs where the first element is an item from the iterable
+    source and the second element is a boolean flag indicating if it is the
+    last item in the sequence.
+    """
+    it = iter(iterable)
+    prev = it.__next__()
+    for item in it:
+        yield prev, False
+        prev = item
+    yield prev, True
+
+
 if __name__ == '__main__':
     my_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
     # rename_files(my_path)
