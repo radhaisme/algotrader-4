@@ -23,10 +23,14 @@ def influx_client(client_type='client'):
     password = config['password']
     dbname = config['database']
 
-    if client_type == 'client':
-        return InfluxDBClient(host, port, user, password, dbname)
-    elif client_type == 'dataframe':
-        return DataFrameClient(host, port, user, password, dbname)
+    try:
+        if client_type == 'client':
+            return InfluxDBClient(host, port, user, password, dbname)
+        elif client_type == 'dataframe':
+            return DataFrameClient(host, port, user, password, dbname)
+    except Exception as e:
+        print(e)
+        return False
 
 
 def available_series(measurement='fx_tick'):

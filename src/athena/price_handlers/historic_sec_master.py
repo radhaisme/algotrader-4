@@ -1,9 +1,9 @@
-
-import queue
 import datetime
+import pandas as pd
+
 from athena.price_handlers.base import AbstractTickPriceHandler
+from common.utilities import iter_islast, previous_and_next
 from databases.influx_manager import influx_client
-from common.utilities import iter_islast
 
 
 class HistoricTickPriceHandler(AbstractTickPriceHandler):
@@ -15,15 +15,54 @@ class HistoricTickPriceHandler(AbstractTickPriceHandler):
 
     """
 
-    def __init__(self, db_client, symbols_list, data_provider, start_time, end_time):
-        self.db_client = db_client
+    def __init__(self, symbols_list, data_provider, start_time, end_time):
+        self.db_client = influx_client(client_type='dataframe')
         self.symbols_list = symbols_list
         self.data_provider = data_provider
         self.start_time = start_time
         self.end_time = end_time
-        self._tick_data = ''
+        self._tick_data = pd.DataFrame()
 
-        self._query_the_data(self.symbols_list, self.start_time, self.end_time)
+        self._query_divider()
+
+    def _divide_in_chuncks(self):
+        total = pd.to_datetime(self.end_time, utc=True) - pd.to_datetime(self.start_time, utc=True)
+        # When the range is longer than one hour
+        if total.seconds >= 3600:
+            range = pd.date_range(start=self.start_time,
+                                  end=self.end_time,
+                                  freq='1h',
+                                  tz='UTC').tolist()
+            #Add the last range
+            diff = pd.to_datetime(self.end_time, utc=True) - range[-1]
+            if diff.seconds > 0:
+                range.append(pd.to_datetime(self.end_time, utc=True))
+            elif diff.seconds < 0:
+                del range[-1]
+            return range
+        # Smaller than one hour
+        else:
+            return [pd.to_datetime(self.start_time, utc=True),
+                    pd.to_datetime(self.end_time, utc=True)]
+
+    def _query_divider(self):
+
+        queries_ranges = self._divide_in_chuncks()
+
+        # Add a millisecond to the star time of each sub query
+        for (prev, item, nxt), islast in iter_islast(previous_and_next(queries_ranges)):
+            if prev is None:
+                start_time_interm = item
+            else:
+                start_time_interm = item + datetime.timedelta(milliseconds=1)
+
+            # Send a query request for each subquery
+            if not islast:
+                start_time_interm = start_time_interm.strftime('%Y-%m-%d %H:%M:%S.%f')
+                nxt = nxt.strftime('%Y-%m-%d %H:%M:%S.%f')
+                self._query_the_data(symbols,
+                                     pd.to_datetime(start_time_interm),
+                                     pd.to_datetime(nxt))
 
     def _query_the_data(self, symbols_list, s_time, e_time, table='fx_tick'):
         """
@@ -58,30 +97,29 @@ class HistoricTickPriceHandler(AbstractTickPriceHandler):
 
         final_statement = final_statement + " AND (" + all_symbols + ")"
 
-        clients = self.db_client
-        self._tick_data = clients.query(final_statement).get_points()
+        ticks_to_add = self.db_client.query(query=final_statement)[table]
+
+        self._tick_data = pd.concat([self._tick_data, ticks_to_add])
 
     def get_new_tick(self):
         """
         Returns the latest tick from the data feed.
         """
-        return self._tick_data
 
+        for idx, row in ticks._tick_data.iterrows():
+            yield (idx, row['bid'], row['ask'], row['symbol'], row['provider'])
 
 
 if __name__ == '__main__':
 
-    my_queue = queue.Queue()
-    client = influx_client()
-    symbols = ['EURUSD', 'AUDCAD', 'AUDJPY', 'CADCHF', 'EURGBP']
+    symbols = ['EURUSD']
     provider = 'fxcm'
-    s_date = '2018-02-01 15:00:00.000'
-    e_date = '2018-02-01 15:00:10.000'
+    s_date = '2017-02-01 15:00:00.000'
+    e_date = '2017-02-01 17:00:00.100'
 
-    ticks = HistoricTickPriceHandler(client, symbols, provider, s_date, e_date)
-
+    ticks = HistoricTickPriceHandler(symbols, provider, s_date, e_date)
 
     c = 0
-    for tick in ticks._tick_data:
-        print("{}: {}".format(c, tick))
+    for t in ticks.get_new_tick():
+        print('{}: {}'.format(c, t))
         c += 1

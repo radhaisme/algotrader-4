@@ -124,7 +124,7 @@ if __name__ == '__main__':
 
     my_client = influx_client(client_type='dataframe')
 
-    my_dir = "/media/sf_Trading/data/clean_fxcm"
+    my_dir = r"D:\Trading\data\clean_fxcm\TO_LOAD"
     load_multiple_files(my_client, my_dir)
 
 

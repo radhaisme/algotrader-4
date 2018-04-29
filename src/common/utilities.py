@@ -1,6 +1,6 @@
 import os
 import pathlib
-
+from itertools import tee, islice, chain
 
 def rename_files(dir_path):
     """
@@ -78,6 +78,15 @@ def iter_islast(iterable):
         yield prev, False
         prev = item
     yield prev, True
+
+
+def previous_and_next(some_iterable):
+    # https://stackoverflow.com/a/1012089/3512107
+    prevs, items, nexts = tee(some_iterable, 3)
+    prevs = chain([None], prevs)
+    nexts = chain(islice(nexts, 1, None), [None])
+    return zip(prevs, items, nexts)
+
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ import yaml
 # TODO: CONFIG = os.environ['TRADE_CONF']
 
 # TODO point to the configuration file directly, must review to work with a ENV VAR
-CONFIG = '/home/bsk/trading.conf'
+CONFIG = r'Z:\Javier\Dropbox\trading\trading.conf'
 
 
 def oanda_connection_type():
@@ -36,3 +36,8 @@ def fxcm_data_path():
 def influx_config():
     stream = open(os.path.expanduser(CONFIG), 'r')
     return yaml.load(stream)['influx']
+
+
+def cassandra_config():
+    stream = open(os.path.expanduser(CONFIG), 'r')
+    return yaml.load(stream)['cassandra']
