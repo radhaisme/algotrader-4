@@ -1,6 +1,9 @@
 import os
 import pathlib
 from itertools import tee, islice, chain
+import datetime
+from functools import wraps
+
 
 def rename_files(dir_path):
     """
@@ -88,6 +91,16 @@ def previous_and_next(some_iterable):
     return zip(prevs, items, nexts)
 
 
+def fn_timer(function):
+    # http://www.marinamele.com/7-tips-to-time-python-scripts-and-control-memory-and-cpu-usage
+    @wraps(function)
+    def function_timer(*args, **kwargs):
+        t0 = datetime.datetime.now()
+        result = function(*args, **kwargs)
+        t1 = datetime.datetime.now()
+        print("Total time running {}: {}".format(function.__name__, t1 - t0))
+        return result
+    return function_timer
 
 if __name__ == '__main__':
     my_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"

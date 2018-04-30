@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from pprint import pprint
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
+
 from common.config import influx_config
 
 
@@ -52,7 +52,41 @@ def available_series(measurement='fx_tick'):
     return [(x[0].get('symbol'), x[0].get('provider')) for x in ans]
 
 
+def db_server_info():
+    """
+
+    Returns: Print out info about the database
+
+    """
+    client = influx_client()
+
+    dbs = client.get_list_database()
+    usr = client.get_list_users()
+    msr = client.get_list_measurements()
+    ret = client.get_list_retention_policies()
+
+    print('###########################################')
+    print('#                                         #')
+    print('#       INFLUX DATABASE SERVER INFO       #')
+    print('#                                         #')
+    print('###########################################')
+    print('\n')
+    print('################ DATABASES ################\n')
+    for db in dbs:
+        db_ret = client.get_list_retention_policies(db['name'])
+        print('Database: \"{}\" with policy: \"{}\"'.format(db['name'], db_ret[0]['name']))
+
+    print('\n################   USERS   ################\n')
+    for us in usr:
+        print('User \"{}\" is admin: \"{}\"'.format(us['user'], us['admin']))
+    print('\n########### RETENTION POLICIES ############\n')
+    for r in ret:
+        print(r)
+    print('\n############## MEASUREMENTS ###############\n')
+    for m in msr:
+        print(m)
+
 
 
 if __name__ == '__main__':
-    pprint(available_series())
+    db_server_info()
