@@ -1,17 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="BSK Development" stopOnFirstError="true" uploadOnCheckin="0b94e155-f11d-46b2-80e0-e331e84b4108">
-    <serverData>
-      <paths name="BSK Development">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/bsk/athena" local="$PROJECT_DIR$/../athena" web="/" />
-            <mapping deploy="/home/bsk/bsk_trading" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-    </serverData>
-    <option name="myUploadOnCheckinName" value="BSK Development" />
+  <component name="PublishConfigData" autoUpload="Always" stopOnFirstError="true">
     <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>
