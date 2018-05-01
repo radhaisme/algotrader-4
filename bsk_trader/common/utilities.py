@@ -35,11 +35,11 @@ def rename_files(dir_path):
 
 def zero_bytes_files(dir_path, action=None):
     """
-
+    Perform action on small size files within a directory
     Args:
         dir_path:
-        action:
-    Returns:
+        action: 'print', 'delete', None
+    Returns: list of file paths
 
     """
     zeros = []
@@ -114,6 +114,7 @@ def fn_timer(function):
         print("Total time running {}: {}".format(function.__name__, t1 - t0))
         return result
     return function_timer
+
 
 if __name__ == '__main__':
     my_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"

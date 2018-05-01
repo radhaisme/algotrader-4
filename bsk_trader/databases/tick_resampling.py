@@ -2,9 +2,9 @@
 
 import datetime
 import pandas as pd
-
+import sys
 from databases.influx_manager import influx_client
-
+from influxdb.exceptions import *
 
 def time_bounds(measurement, symbol, provider, position=['FIRST', 'LAST']):
     """
@@ -71,6 +71,7 @@ def tick_resampling(symbol, provider, input_table, output_table,
             'symbol': symbol}
     field_columns = ['open', 'high', 'low', 'close']
     protocol = 'json'
+
     while start_time < end_time:
         print('{} Doing: {}'.format(datetime.datetime.now(), start_time))
         partial_end = start_time + delta
@@ -83,27 +84,38 @@ def tick_resampling(symbol, provider, input_table, output_table,
 
         try:
             ticks = client.query(cql)[input_table]
-            ticks['mid'] = ticks.mean(axis=1)
-            ticks.drop(['bid', 'ask'], axis=1, inplace=True)
 
-            bars = ticks.resample(rule='1Min', level=0).ohlc().ffill()
-            # Drop multiindex, INflux write has problem with that
-            bars.columns = bars.columns.droplevel(0)
-            # Drop N/A. When there are no tick, do not create a bar
-            bars.dropna(inplace=True)
+        except KeyError as e:
+            print('EXCEPTION. {}'.format(e))
+            sys.exit(-10)
+        else:
+            pass
 
-            # Insert in database
-            client.write_points(dataframe=bars,
-                                measurement=output_table,
-                                tags=tags,
-                                time_precision='ms',
-                                protocol=protocol,
-                                numeric_precision='full',
-                                field_columns=field_columns)
-        except:
-            print('Not data for {}'.format(start_time))
 
+
+
+            # ticks['mid'] = ticks.mean(axis=1)
+            # ticks.drop(['bid', 'ask'], axis=1, inplace=True)
+            #
+            # bars = ticks.resample(rule='1Min', level=0).ohlc()
+            # # Drop multiindex, Influx write has problem with that
+            # bars.columns = bars.columns.droplevel(0)
+            # # Drop N/A. When there are no tick, do not create a bar
+            # bars.dropna(inplace=True)
+            #
+            # # Insert in database
+            # client.write_points(dataframe=bars,
+            #                     measurement=output_table,
+            #                     tags=tags,
+            #                     time_precision='ms',
+            #                     protocol=protocol,
+            #                     numeric_precision='full',
+            #                     field_columns=field_columns)
+            #
+            # print('Not data for {}'.format(start_time))
+            # print(e)
     client.close()
+    return ticks
 
 if __name__ == '__main__':
     symbol = 'EURUSD'
@@ -111,9 +123,9 @@ if __name__ == '__main__':
     table = 'fx_tick'
     output = 'fx_1m_EURUSD'
 
-
     sdate = '2018-02-01 00:00:00.000'
     edate = '2018-02-02 00:00:00.000'
+
     t0 = datetime.datetime.now()
     tick_resampling(symbol=symbol, provider=provider,
                     input_table=table, output_table=output,
