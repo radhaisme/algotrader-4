@@ -8,10 +8,6 @@ from functools import wraps
 def rename_files(dir_path):
     """
     Rename all files for a given extension within a folder
-    Args:
-        dir_path:
-
-    Returns:
 
     """
 
@@ -69,11 +65,13 @@ def zero_bytes_files(dir_path, action=None):
 
 def iter_islast(iterable):
     """
-    iter_islast(iterable) -> generates (item, islast) pairs
-    https://code.activestate.com/recipes/392015-finding-the-last-item-in-a-loop/
     Generates pairs where the first element is an item from the iterable
     source and the second element is a boolean flag indicating if it is the
     last item in the sequence.
+
+    https://code.activestate.com/recipes/392015-finding-the-last-item-in-a-loop/
+
+    Returns: (item, islast)
     """
     it = iter(iterable)
     prev = it.__next__()
@@ -84,7 +82,15 @@ def iter_islast(iterable):
 
 
 def previous_and_next(some_iterable):
-    # https://stackoverflow.com/a/1012089/3512107
+    """
+    Generates tupple  with three consecutive elements of an iterable
+    source where the first element is the previous element of the iteration,
+    the second element is the current element and the last is the next.
+
+    https://stackoverflow.com/a/1012089/3512107
+
+    Returns: (previous, item, next)
+    """
     prevs, items, nexts = tee(some_iterable, 3)
     prevs = chain([None], prevs)
     nexts = chain(islice(nexts, 1, None), [None])
@@ -92,7 +98,14 @@ def previous_and_next(some_iterable):
 
 
 def fn_timer(function):
-    # http://www.marinamele.com/7-tips-to-time-python-scripts-and-control-memory-and-cpu-usage
+    """
+    Define a decorator that measures the elapsed time in running the function.
+
+    http://www.marinamele.com/7-tips-to-time-python-scripts-and-control-memory-and-cpu-usage
+
+    Returns: print the elapsed time
+
+    """
     @wraps(function)
     def function_timer(*args, **kwargs):
         t0 = datetime.datetime.now()

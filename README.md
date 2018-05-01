@@ -4,7 +4,7 @@
 
 Event driven engine for analysis and trading of financial assets.
 
-Written in Python 3.5, work in progress.
+Written in Python 3, work in progress.
 
 
 ## CONFIG FILE STRUCTURE
@@ -56,7 +56,15 @@ sql:
     password: your_password
     echo: False
     dbname: securities_master
-    
+
+influx:
+    # Settings here depends of your database engine
+    host: 127.0.0.1
+    port: 8086
+    user: your_user
+    password: your_password
+    database: securities_master
+
 ```
 
 

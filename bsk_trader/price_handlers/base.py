@@ -40,7 +40,6 @@ class AbstractPriceHandler(object):
                                                                              self.__class__.__name__))
             return None
 
-
 class AbstractTickPriceHandler(AbstractPriceHandler):
 
     def is_tick(self):

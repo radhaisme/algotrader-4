@@ -4,10 +4,12 @@
 
 import pathlib
 import time
+
 import datetime
 import pandas as pd
-from databases.influx_manager import influx_client
 from pytz import utc
+
+from databases.influx_manager import influx_client
 
 
 def prepare_data_for_securities_master(file_path):
@@ -56,44 +58,44 @@ def my_date_parser(date_string):
                              tzinfo=utc)
 
 
-def write_to_db(db_client, df, symbol):
+def write_to_db_with_dataframe(db_client, data, tags, into_table):
     """
 
     Args:
         db_client:
-        df:
-        symbol:
+        data:
+        tags:
+        into_table:
 
     Returns:
 
     """
-
     protocol = 'json'
     field_columns = ['bid', 'ask']
-    tags = {'symbol': symbol,
-            'provider': 'fxcm'}
-    table = 'fx_tick'
 
-    db_client.write_points(dataframe=df,
-                           measurement=table,
+    db_client.write_points(dataframe=data,
+                           measurement=into_table,
                            protocol=protocol,
                            field_columns=field_columns,
                            tags=tags,
                            time_precision='ms',
                            numeric_precision='full',
-                           batch_size=50000)
+                           batch_size=10000)
 
 
-def load_multiple_files(db_client, dir_path):
+def load_multiple_tick_files(dir_path, provider, into_table):
     """
 
     Args:
-        db_client:
         dir_path:
+        provider:
+        into_table:
 
     Returns:
 
     """
+
+    db_client = influx_client(client_type='dataframe')
     dir_path = pathlib.Path(dir_path)
     files = dir_path.glob('**/*.gz')
 
@@ -110,7 +112,12 @@ def load_multiple_files(db_client, dir_path):
         print('Time processing file: {}'.format(time_str))
 
         symbol = each_file.parts[-1][0:6]
-        write_to_db(db_client, df, symbol)
+        tags = {'symbol': symbol,
+                'provider': provider}
+        write_to_db_with_dataframe(db_client=db_client,
+                                   table=into_table,
+                                   data=df,
+                                   tags=tags)
         end_loading_time = time.time()
         delta_loading = end_loading_time - end_preparing_time
         time_str = time.strftime("%H:%M:%S", time.gmtime(delta_loading))
@@ -122,10 +129,10 @@ def load_multiple_files(db_client, dir_path):
 if __name__ == '__main__':
     start_time = time.time()
 
-    my_client = influx_client(client_type='dataframe')
+
 
     my_dir = r"D:\Trading\data\clean_fxcm\TO_LOAD"
-    load_multiple_files(my_client, my_dir)
+    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_tick')
 
 
     # gen = query_to_db().get_points()
