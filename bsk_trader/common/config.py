@@ -34,5 +34,10 @@ def influx_config():
     stream = open(CONFIG, 'rt')
     return yaml.load(stream)['influx']
 
+def log_configuration():
+    stream = open(CONFIG, 'rt')
+    return yaml.load(stream)['logging']['config']
 
-
+def log_saving_path():
+    stream = open(CONFIG, 'rt')
+    return yaml.load(stream)['logging']['saving_path']

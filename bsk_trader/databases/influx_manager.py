@@ -89,4 +89,4 @@ def db_server_info():
 
 
 if __name__ == '__main__':
-    db_server_info()
+    print(available_series('fx_tick'))

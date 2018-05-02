@@ -2,9 +2,13 @@
 
 import datetime
 import pandas as pd
-import sys
+from databases.influx_manager import available_series
 from databases.influx_manager import influx_client
 from influxdb.exceptions import *
+from log.logging import setup_logging
+
+import logging
+
 
 def time_bounds(measurement, symbol, provider, position=['FIRST', 'LAST']):
     """
@@ -54,8 +58,8 @@ def one_minute_adjustment(datetime_to_adjust):
     return pd.to_datetime(ans)
 
 
-def tick_resampling(symbol, provider, input_table, output_table,
-                    custom_dates=False, start_time=None, end_time=None):
+def tick_resampling(symbol, provider, input_table, custom_dates=False,
+                    start_time=None, end_time=None, frequency='1m'):
 
     if custom_dates:
         start_time = pd.to_datetime(start_time)
@@ -67,69 +71,90 @@ def tick_resampling(symbol, provider, input_table, output_table,
 
     client = influx_client(client_type='dataframe')
     delta = datetime.timedelta(hours=24)
-    tags = {'provider': provider,
-            'symbol': symbol}
-    field_columns = ['open', 'high', 'low', 'close']
-    protocol = 'json'
 
     while start_time < end_time:
-        print('{} Doing: {}'.format(datetime.datetime.now(), start_time))
+        logger.info('Working on {} at {}'.format(symbol, start_time))
+
         partial_end = start_time + delta
         cql = 'SELECT time, bid, ask FROM {} ' \
               'WHERE symbol=\'{}\' ' \
               'AND provider=\'{}\' ' \
               'AND time>=\'{}\' ' \
               'AND time<\'{}\''.format(input_table, symbol, provider, start_time, partial_end)
-        start_time = partial_end
 
         try:
             ticks = client.query(cql)[input_table]
+            bars = ticks_to_bars(ticks)
+            insert_bars_to_sec_master(client, bars, frequency, symbol, provider)
+        except KeyError:
+            logger.info('No data for {} at {}'.format(symbol, start_time))
 
-        except KeyError as e:
-            print('EXCEPTION. {}'.format(e))
-            sys.exit(-10)
-        else:
-            pass
+        start_time = partial_end
 
-
-
-
-            # ticks['mid'] = ticks.mean(axis=1)
-            # ticks.drop(['bid', 'ask'], axis=1, inplace=True)
-            #
-            # bars = ticks.resample(rule='1Min', level=0).ohlc()
-            # # Drop multiindex, Influx write has problem with that
-            # bars.columns = bars.columns.droplevel(0)
-            # # Drop N/A. When there are no tick, do not create a bar
-            # bars.dropna(inplace=True)
-            #
-            # # Insert in database
-            # client.write_points(dataframe=bars,
-            #                     measurement=output_table,
-            #                     tags=tags,
-            #                     time_precision='ms',
-            #                     protocol=protocol,
-            #                     numeric_precision='full',
-            #                     field_columns=field_columns)
-            #
-            # print('Not data for {}'.format(start_time))
-            # print(e)
     client.close()
-    return ticks
+
+
+def ticks_to_bars(ticks, frequency='1m'):
+
+    ticks['mid'] = ticks.mean(axis=1)
+    ticks.drop(['bid', 'ask'], axis=1, inplace=True)
+
+    bars = ticks.resample(rule=frequency, level=0).ohlc()
+
+    # Drop multiindex, Influx write has problem with that
+    bars.columns = bars.columns.droplevel(0)
+
+    # Drop N/A. When there are no tick, do not create a bar
+    bars.dropna(inplace=True)
+
+    return bars
+
+
+def insert_bars_to_sec_master(client, bars, frequency, symbol, provider):
+
+    tags = {'provider': provider,
+            'symbol': symbol}
+    field_columns = ['open', 'high', 'low', 'close']
+    protocol = 'json'
+    measurement = 'fx_{}'.format(frequency)
+
+    try:
+        # Insert in database
+        client.write_points(dataframe=bars,
+                            measurement=measurement,
+                            tags=tags,
+                            time_precision='ms',
+                            protocol=protocol,
+                            numeric_precision='full',
+                            field_columns=field_columns)
+        logger.info('Insert successful for {} at {}'.format(symbol, measurement))
+        return True
+    except (InfluxDBClientError, InfluxDBServerError):
+        logger.exception('Error inserting data for {} at {}'.format(tags, measurement))
+        return False
+
 
 if __name__ == '__main__':
-    symbol = 'EURUSD'
-    provider = 'fxcm'
-    table = 'fx_tick'
-    output = 'fx_1m_EURUSD'
+    setup_logging()
+    logger = logging.getLogger(__name__)
 
     sdate = '2018-02-01 00:00:00.000'
     edate = '2018-02-02 00:00:00.000'
 
     t0 = datetime.datetime.now()
-    tick_resampling(symbol=symbol, provider=provider,
-                    input_table=table, output_table=output,
-                    custom_dates=False)
-    t1 = datetime.datetime.now()
 
-    print("Running for : {} ".format(t1-t0))
+    table = 'fx_tick'
+    tick_series = available_series(table)
+
+    for each_serie in tick_series:
+        t1 = datetime.datetime.now()
+
+        prov = each_serie[1]
+        sym = each_serie[0]
+        tick_resampling(symbol=sym, provider=prov, input_table=table)
+
+        t2 = datetime.datetime.now()
+        logger.info('TOTAL RUNNING TIME FOR {} - {}'.format(sym, t2-t1))
+
+    t4 = datetime.datetime.now()
+    logger.info('TOTAL RUNNING TIME FOR ALL - {}'.format(sym, t4 - t0))
