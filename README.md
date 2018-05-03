@@ -1,4 +1,4 @@
-# BSK TRADING ENGINE
+# ALGOTRADER
 
 ## WHAT IS IT?:
 
@@ -46,17 +46,6 @@ oanda_live:
 quandl:
     token: your_quandl_token
     
-sql:
-    # Settings here depends of your database engine
-    dialect: mysql
-    connector: mysqlconnector
-    server: 127.0.0.1
-    port: 3306
-    user: your_user
-    password: your_password
-    echo: False
-    dbname: securities_master
-
 influx:
     # Settings here depends of your database engine
     host: 127.0.0.1
@@ -64,6 +53,7 @@ influx:
     user: your_user
     password: your_password
     database: securities_master
+
 
 ```
 
