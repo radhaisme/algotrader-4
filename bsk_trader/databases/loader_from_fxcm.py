@@ -2,14 +2,17 @@
 # https://medium.com/netflix-techblog/scaling-time-series-data-storage-part-i-ec2b6d44ba39
 # https://www.influxdata.com/blog/influxdb-vs-cassandra-time-series/
 
+import logging
 import pathlib
-import time
+import sys
 
 import datetime
 import pandas as pd
+from influxdb.exceptions import *
 from pytz import utc
 
 from databases.influx_manager import influx_client
+from log.logging import setup_logging
 
 
 def prepare_data_for_securities_master(file_path):
@@ -21,17 +24,22 @@ def prepare_data_for_securities_master(file_path):
     # Something to read when working with a lot of data
     # https://www.dataquest.io/blog/pandas-big-data/
 
-    df = pd.read_csv(filepath_or_buffer=file_path,
-                     compression='gzip',
-                     sep=',',
-                     skiprows=1,
-                     names=['price_datetime', 'bid', 'ask'],
-                     parse_dates=[0],
-                     date_parser=my_date_parser,
-                     index_col=[0],
-                     float_precision='high',
-                     engine='c')
-    return df
+    try:
+        df = pd.read_csv(filepath_or_buffer=file_path,
+                         compression='gzip',
+                         sep=',',
+                         skiprows=1,
+                         names=['price_datetime', 'bid', 'ask'],
+                         parse_dates=[0],
+                         date_parser=my_date_parser,
+                         index_col=[0],
+                         float_precision='high',
+                         engine='c')
+        logger.info('File ready: {}'.format(file_path))
+        return df
+    except OSError:
+        logger.exception('Error reading file {}'.format(file_path))
+        sys.exit(-1)
 
 
 def my_date_parser(date_string):
@@ -48,21 +56,25 @@ def my_date_parser(date_string):
     Returns: datetime object with format YYYY-MM-DD HH:MM:SS.mmm
 
     """
-    return datetime.datetime(int(date_string[6:10]),
-                             int(date_string[0:2]),
-                             int(date_string[3:5]),
-                             int(date_string[11:13]),
-                             int(date_string[14:16]),
-                             int(date_string[17:19]),
-                             int(date_string[20:23]) * 1000,
-                             tzinfo=utc)
+    try:
+        return datetime.datetime(int(date_string[6:10]),
+                                 int(date_string[0:2]),
+                                 int(date_string[3:5]),
+                                 int(date_string[11:13]),
+                                 int(date_string[14:16]),
+                                 int(date_string[17:19]),
+                                 int(date_string[20:23]) * 1000,
+                                 tzinfo=utc)
+    except Exception:
+        logger('Date parser error - {}'.format(date_string))
+        sys.exit(-1)
 
 
-def write_to_db_with_dataframe(db_client, data, tags, into_table):
+def write_to_db_with_dataframe(client, data, tags, into_table):
     """
 
     Args:
-        db_client:
+        client:
         data:
         tags:
         into_table:
@@ -73,24 +85,71 @@ def write_to_db_with_dataframe(db_client, data, tags, into_table):
     protocol = 'json'
     field_columns = ['bid', 'ask']
 
-    db_client.write_points(dataframe=data,
-                           measurement=into_table,
-                           protocol=protocol,
-                           field_columns=field_columns,
-                           tags=tags,
-                           time_precision='ms',
-                           numeric_precision='full',
-                           batch_size=10000)
+    try:
+        client.write_points(dataframe=data,
+                            measurement=into_table,
+                            protocol=protocol,
+                            field_columns=field_columns,
+                            tags=tags,
+                            time_precision='ms',
+                            numeric_precision='full',
+                            batch_size=10000)
+        logger.info('Data insert correct')
+    except (InfluxDBServerError, InfluxDBClientError):
+        logger.exception('Error data insert - {}'.format(tags))
+        sys.exit(-1)
 
 
-def load_multiple_tick_files(dir_path, provider, into_table):
+def record_exist(client, file_path, table, symbol, provider):
+    """
+    Find if firsr timestamp in CSV is already in database
+    Args:
+        client: Influc DF client
+        file_path: path
+        table: str
+        symbol: str
+        provider: str
+
+    Returns: bol
+
+    """
+
+    # read first row od csv
+    try:
+        df = pd.read_csv(filepath_or_buffer=file_path,
+                         compression='gzip',
+                         sep=',',
+                         skiprows=1,
+                         names=['price_datetime', 'bid', 'ask'],
+                         parse_dates=[0],
+                         date_parser=my_date_parser,
+                         index_col=[0],
+                         nrows=1,
+                         engine='c')
+    except OSError:
+        logger.exception('Error reading file {}'.format(file_path))
+        sys.exit(-1)
+
+    first_datetime = df.first_valid_index().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+    try:
+        client.query('SELECT * FROM {} '
+                     'WHERE symbol=\'{}\' '
+                     'AND provider=\'{}\' '
+                     'AND time=\'{}\''.format(table, symbol, provider, first_datetime))[table]
+        return True
+    except KeyError:
+        return False
+
+
+def load_multiple_tick_files(dir_path, provider, into_table, overwrite):
     """
 
     Args:
-        dir_path:
-        provider:
-        into_table:
-
+        dir_path: path
+        provider: str
+        into_table: str
+        overwrite: bol
     Returns:
 
     """
@@ -100,39 +159,36 @@ def load_multiple_tick_files(dir_path, provider, into_table):
     files = dir_path.glob('**/*.gz')
 
     for each_file in files:
-        init_preparing_time = time.time()
-
-        print('Working on: {}'.format(each_file))
-        df = prepare_data_for_securities_master(each_file)
-
-        end_preparing_time = time.time()
-        delta_preparing = end_preparing_time - init_preparing_time
-        time_str = time.strftime("%H:%M:%S", time.gmtime(delta_preparing))
-        print('Data ready to load')
-        print('Time processing file: {}'.format(time_str))
+        logger.info('Working on {}'.format(each_file))
 
         symbol = each_file.parts[-1][0:6]
         tags = {'symbol': symbol,
                 'provider': provider}
-        write_to_db_with_dataframe(db_client=db_client,
-                                   table=into_table,
-                                   data=df,
-                                   tags=tags)
-        end_loading_time = time.time()
-        delta_loading = end_loading_time - end_preparing_time
-        time_str = time.strftime("%H:%M:%S", time.gmtime(delta_loading))
-        print('Data loaded to databases')
-        print('Time loading to db: {}'.format(time_str))
-        print('##############################################################')
+
+        if overwrite:
+            in_database = False
+        else:
+            in_database = record_exist(db_client, each_file, into_table, symbol, provider)
+
+        if in_database:
+            logger.info('Already in database {}-{} in {}'.format(symbol, provider, each_file))
+        else:
+            df = prepare_data_for_securities_master(each_file)
+            write_to_db_with_dataframe(client=db_client,
+                                       data=df,
+                                       tags=tags,
+                                       into_table=into_table)
+
+
+    logger.info('All files loaded')
 
 
 if __name__ == '__main__':
-    start_time = time.time()
+    setup_logging()
+    logger = logging.getLogger(__name__)
 
-
-
-    my_dir = r"D:\Trading\data\clean_fxcm\TO_LOAD"
-    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_tick')
+    my_dir = r"D:\Trading\data\clean_fxcm\LOADED"
+    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_tick', overwrite=False)
 
 
     # gen = query_to_db().get_points()
@@ -145,6 +201,3 @@ if __name__ == '__main__':
     #write_to_db(my_client, x, 'eurusd')
     #ans = query_to_db(my_client)
     #print(ans)
-
-    x = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
-    print("Running for : {} ".format(x))

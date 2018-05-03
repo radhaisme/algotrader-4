@@ -184,11 +184,11 @@ if __name__ == '__main__':
     #           'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
     #           'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
     #           'USDCAD', 'USDCHF', 'USDJPY']
-    store = "/media/sf_Trading/data/example_data/ORIGINAL"
+    store = "D:\Trading\data\clean_fxcm\TO_LOAD\original"
     # get_datafiles(list_to_download=symbols, store_path=store)
 
     # 2. Clean the files for Null Characters
-    saving_dir_path = "/media/sf_Trading/"
+    saving_dir_path = "D:\Trading\data\clean_fxcm\TO_LOAD\clean"
     clean_fxmc_file(original_path=store, clean_path=saving_dir_path)
 
     # 3. Check files integrity after the clean up.

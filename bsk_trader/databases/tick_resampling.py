@@ -1,5 +1,5 @@
 # coding=utf-8
-
+import sys
 import datetime
 import pandas as pd
 from databases.influx_manager import available_series
@@ -24,21 +24,28 @@ def time_bounds(measurement, symbol, provider, position=['FIRST', 'LAST']):
     """
     client = influx_client()
     ans = {}
-    for each_posicion in position:
+    for each_position in position:
         cql = 'SELECT {}(ask) ' \
               'FROM \"{}\" ' \
               'WHERE symbol=\'{}\' ' \
-              'AND provider=\'{}\''.format(each_posicion,
+              'AND provider=\'{}\''.format(each_position,
                                            measurement,
                                            symbol,
                                            provider)
 
-        time_on_db = pd.to_datetime(next(client.query(query=cql)[measurement])['time'])
-        ans[each_posicion] = one_minute_adjustment(time_on_db)
+        try:
+            time_on_db = pd.to_datetime(next(client.query(query=cql)[measurement])['time'])
+        except (InfluxDBClientError, InfluxDBServerError):
+            logger.exception('Error reading time bounds')
+            sys.exit(-1)
+
+        ans[each_position] = one_minute_adjustment(time_on_db)
         ans['symbol'] = symbol
         ans['provider'] = provider
         ans['measurement'] = measurement
+
     client.close()
+
     return ans
 
 
@@ -58,8 +65,46 @@ def one_minute_adjustment(datetime_to_adjust):
     return pd.to_datetime(ans)
 
 
+def load_all_series(input_table='fx_ticks'):
+    """
+    Load all series of a table and call resampling
+    Args:
+        input_table: ticks table [timestamp, bid, ask]
+
+    Returns:
+
+    """
+    t0 = datetime.datetime.now()
+
+    tick_series = available_series(input_table)
+    for each_serie in tick_series:
+        t1 = datetime.datetime.now()
+
+        tick_resampling(symbol=each_serie[0], provider=each_serie[1], input_table=input_table)
+
+        t2 = datetime.datetime.now()
+        logger.info('TOTAL RUNNING TIME FOR {} - {}'.format(each_serie[0], t2 - t1))
+
+    t4 = datetime.datetime.now()
+    logger.info('TOTAL RUNNING TIME - {}'.format(t4 - t0))
+
+
 def tick_resampling(symbol, provider, input_table, custom_dates=False,
-                    start_time=None, end_time=None, frequency='1m'):
+                    start_time=None, end_time=None, frequency='1min'):
+    """
+    Re-sample 24hr of tick data for a symbol-provider loading to securities master
+    Args:
+        symbol:
+        provider:
+        input_table:
+        custom_dates:
+        start_time:
+        end_time:
+        frequency:
+
+    Returns:
+
+    """
 
     if custom_dates:
         start_time = pd.to_datetime(start_time)
@@ -74,8 +119,8 @@ def tick_resampling(symbol, provider, input_table, custom_dates=False,
 
     while start_time < end_time:
         logger.info('Working on {} at {}'.format(symbol, start_time))
-
         partial_end = start_time + delta
+
         cql = 'SELECT time, bid, ask FROM {} ' \
               'WHERE symbol=\'{}\' ' \
               'AND provider=\'{}\' ' \
@@ -84,34 +129,84 @@ def tick_resampling(symbol, provider, input_table, custom_dates=False,
 
         try:
             ticks = client.query(cql)[input_table]
-            bars = ticks_to_bars(ticks)
-            insert_bars_to_sec_master(client, bars, frequency, symbol, provider)
         except KeyError:
-            logger.info('No data for {} at {}'.format(symbol, start_time))
+            logger.warning('No data for {} at {}'.format(symbol, start_time))
+            break
+
+        bars = ticks_to_bars(ticks)
+
+        insert_bars_to_sec_master(client, bars, frequency, symbol, provider)
 
         start_time = partial_end
 
     client.close()
 
 
-def ticks_to_bars(ticks, frequency='1m'):
+def ticks_to_bars(ticks, frequency='1min'):
+    """
+    Resample ticks [timestamp bid, ask) to bars OHLC of selected frequency
+    https://stackoverflow.com/a/17001474/3512107
 
+    Args:
+        ticks:
+        frequency: https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+                    Alias	Description
+                    B	business day frequency
+                    C	custom business day frequency
+                    D	calendar day frequency
+                    W	weekly frequency
+                    M	month end frequency
+                    SM	semi-month end frequency (15th and end of month)
+                    BM	business month end frequency
+                    CBM	custom business month end frequency
+                    MS	month start frequency
+                    SMS	semi-month start frequency (1st and 15th)
+                    BMS	business month start frequency
+                    CBMS	custom business month start frequency
+                    Q	quarter end frequency
+                    BQ	business quarter end frequency
+                    QS	quarter start frequency
+                    BQS	business quarter start frequency
+                    A, Y	year end frequency
+                    BA, BY	business year end frequency
+                    AS, YS	year start frequency
+                    BAS, BYS	business year start frequency
+                    BH	business hour frequency
+                    H	hourly frequency
+                    T, min	minutely frequency
+                    S	secondly frequency
+                    L, ms	milliseconds
+                    U, us	microseconds
+                    N	nanoseconds
+
+    Returns: DF
+
+    """
     ticks['mid'] = ticks.mean(axis=1)
     ticks.drop(['bid', 'ask'], axis=1, inplace=True)
 
     bars = ticks.resample(rule=frequency, level=0).ohlc()
-
-    # Drop multiindex, Influx write has problem with that
-    bars.columns = bars.columns.droplevel(0)
-
     # Drop N/A. When there are no tick, do not create a bar
     bars.dropna(inplace=True)
+    # Drop multi-index, Influx write has problem with that
+    bars.columns = bars.columns.droplevel(0)
 
     return bars
 
 
 def insert_bars_to_sec_master(client, bars, frequency, symbol, provider):
+    """
 
+    Args:
+        client:
+        bars:
+        frequency:
+        symbol:
+        provider:
+
+    Returns:
+
+    """
     tags = {'provider': provider,
             'symbol': symbol}
     field_columns = ['open', 'high', 'low', 'close']
@@ -128,33 +223,25 @@ def insert_bars_to_sec_master(client, bars, frequency, symbol, provider):
                             numeric_precision='full',
                             field_columns=field_columns)
         logger.info('Insert successful for {} at {}'.format(symbol, measurement))
-        return True
     except (InfluxDBClientError, InfluxDBServerError):
         logger.exception('Error inserting data for {} at {}'.format(tags, measurement))
-        return False
+        sys.exit(-1)
 
 
 if __name__ == '__main__':
     setup_logging()
     logger = logging.getLogger(__name__)
 
-    sdate = '2018-02-01 00:00:00.000'
-    edate = '2018-02-02 00:00:00.000'
+    sdate = '2016-09-01 00:00:00.000'
+    edate = '2016-10-01 00:00:00.000'
+    logger.info('############ NEW RUN ##################')
+    tick_resampling(symbol='EURUSD',
+                    provider='fxcm',
+                    input_table='fx_tick',
+                    custom_dates=True,
+                    start_time=sdate,
+                    end_time=edate)
 
-    t0 = datetime.datetime.now()
 
-    table = 'fx_tick'
-    tick_series = available_series(table)
 
-    for each_serie in tick_series:
-        t1 = datetime.datetime.now()
 
-        prov = each_serie[1]
-        sym = each_serie[0]
-        tick_resampling(symbol=sym, provider=prov, input_table=table)
-
-        t2 = datetime.datetime.now()
-        logger.info('TOTAL RUNNING TIME FOR {} - {}'.format(sym, t2-t1))
-
-    t4 = datetime.datetime.now()
-    logger.info('TOTAL RUNNING TIME FOR ALL - {}'.format(sym, t4 - t0))

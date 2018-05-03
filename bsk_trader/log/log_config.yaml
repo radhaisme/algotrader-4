@@ -1,45 +1,21 @@
-
-# https://gist.github.com/kingspp/9451566a5555fb022215ca2b7b802f19
-
-version: 1
-
-disable_existing_loggers: False
-
+disable_existing_loggers: false
 formatters:
-    simple:
-        format: "%(asctime)s | %(levelname)s  | %(name)s | %(funcName)s at line %(lineno)d | %(message)s"
-
+  simple: {format: '%(asctime)s | %(levelname)s  | %(name)s - %(funcName)s at line
+      %(lineno)d | %(message)s'}
 handlers:
-    console:
-        class: logging.StreamHandler
-        level: INFO
-        formatter: simple
-        stream: ext://sys.stdout
-
-    info_file_handler:
-        class: logging.handlers.RotatingFileHandler
-        level: INFO
-        formatter: simple
-        filename: info.log
-        maxBytes: 10485760 # 10MB
-        backupCount: 5
-        encoding: utf8
-
-    error_file_handler:
-        class: logging.handlers.RotatingFileHandler
-        level: ERROR
-        formatter: simple
-        filename: errors.log
-        maxBytes: 10485760 # 10MB
-        backupCount: 5
-        encoding: utf8
-
+  console: {class: logging.StreamHandler, formatter: simple, level: INFO, stream: 'ext://sys.stdout'}
+  error_file_handler: {backupCount: 5, class: logging.handlers.RotatingFileHandler,
+    encoding: utf8, filename: 'Z:\Javier\PycharmProjects\bsk_trading\bsk_trader\log\bsk_error.log',
+    formatter: simple, level: ERROR, maxBytes: 10485760}
+  info_file_handler: {backupCount: 5, class: logging.handlers.RotatingFileHandler,
+    encoding: utf8, filename: 'Z:\Javier\PycharmProjects\bsk_trading\bsk_trader\log\bsk_info.log',
+    formatter: simple, level: INFO, maxBytes: 10485760}
 loggers:
-    my_module:
-        level: INFO
-        handlers: [console]
-        propagate: no
-
+  my_module:
+    handlers: [console]
+    level: DEBUG
+    propagate: false
 root:
-    level: NOTSET
-    handlers: [console, info_file_handler, error_file_handler]
+  handlers: [console, info_file_handler, error_file_handler]
+  level: NOTSET
+version: 1
