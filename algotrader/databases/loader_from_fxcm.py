@@ -23,7 +23,7 @@ def prepare_data_for_securities_master(file_path):
     """
     # Something to read when working with a lot of data
     # https://www.dataquest.io/blog/pandas-big-data/
-
+    file_path = pathlib.Path(file_path)
     try:
         df = pd.read_csv(filepath_or_buffer=file_path,
                          compression='gzip',
@@ -35,42 +35,26 @@ def prepare_data_for_securities_master(file_path):
                          index_col=[0],
                          float_precision='high',
                          engine='c')
-        logger.info('File ready: {}'.format(file_path))
+        df.to_csv("D:\Trading\data\clean_fxcm\TO_LOAD\AUDCAD_2015_1.csv")
         return df
+
     except OSError:
         logger.exception('Error reading file {}'.format(file_path))
         sys.exit(-1)
 
 
 def my_date_parser(date_string):
-    """
-    The default parser or pd.to_datetime are very slow.
-    Since the input format is always the same better to do it manually
-
-    https://stackoverflow.com/a/29882676/3512107
-    https://stackoverflow.com/a/29882676/3512107
-
-    Args:
-        date_string: in the format MM/DD/YYYY HH:MM:SS.mmm
-
-    Returns: datetime object with format YYYY-MM-DD HH:MM:SS.mmm
-
-    """
-    try:
-        return datetime.datetime(int(date_string[6:10]),
-                                 int(date_string[0:2]),
-                                 int(date_string[3:5]),
-                                 int(date_string[11:13]),
-                                 int(date_string[14:16]),
-                                 int(date_string[17:19]),
-                                 int(date_string[20:23]) * 1000,
-                                 tzinfo=utc)
-    except Exception:
-        logger('Date parser error - {}'.format(date_string))
-        sys.exit(-1)
+    return datetime.datetime(int(date_string[6:10]),        # %Y
+                             int(date_string[:2]),          # %m
+                             int(date_string[3:5]),         # %d
+                             int(date_string[11:13]),       # %H
+                             int(date_string[14:16]),       # %M
+                             int(date_string[17:19]),       # %s
+                             int(date_string[20:]) * 1000,  # %f
+                             tzinfo=utc)
 
 
-def write_to_db_with_dataframe(client, data, tags, into_table):
+def writer(client, data, tags, into_table):
     """
 
     Args:
@@ -84,14 +68,13 @@ def write_to_db_with_dataframe(client, data, tags, into_table):
     """
     protocol = 'json'
     field_columns = ['bid', 'ask']
-
     try:
         client.write_points(dataframe=data,
                             measurement=into_table,
                             protocol=protocol,
                             field_columns=field_columns,
                             tags=tags,
-                            time_precision='ms',
+                            time_precision='u',
                             numeric_precision='full',
                             batch_size=10000)
         logger.info('Data insert correct')
@@ -102,9 +85,9 @@ def write_to_db_with_dataframe(client, data, tags, into_table):
 
 def record_exist(client, file_path, table, symbol, provider):
     """
-    Find if firsr timestamp in CSV is already in database
+    Find if first timestamp in CSV is already in database
     Args:
-        client: Influc DF client
+        client: Influxdb client
         file_path: path
         table: str
         symbol: str
@@ -129,20 +112,33 @@ def record_exist(client, file_path, table, symbol, provider):
     except OSError:
         logger.exception('Error reading file {}'.format(file_path))
         sys.exit(-1)
-
-    first_datetime = df.first_valid_index().strftime('%Y-%m-%d %H:%M:%S.%f')
+    # We are going to look for records within the same second as the first row in the input file.
+    # the reason for this is that Influx does not keep the ms resolution of the datetime. In some
+    # cases add / subtract a nanosecond turning 00:01.290 into 00:01:289999 or similar.
+    # With the approach here implemented the worst case is less that one second error.
+    first_datetime_up = df.first_valid_index().strftime('%Y-%m-%d %H:%M:%S.000')
+    first_datetime_down = df.first_valid_index().strftime('%Y-%m-%d %H:%M:%S.999')
 
     try:
-        client.query('SELECT * FROM {} '
-                     'WHERE symbol=\'{}\' '
-                     'AND provider=\'{}\' '
-                     'AND time=\'{}\''.format(table, symbol, provider, first_datetime))[table]
-        return True
+        ans = client.query('SELECT * FROM {} '
+                           'WHERE symbol=\'{}\' '
+                           'AND provider=\'{}\' '
+                           'AND time>=\'{}\' '
+                           'AND time<=\'{}\''.format(table,
+                                                     symbol,
+                                                     provider,
+                                                     first_datetime_up,
+                                                     first_datetime_down))[table]
+
+        if (ans.first_valid_index() - df.first_valid_index()) < datetime.timedelta(seconds=1):
+            return True
+        else:
+            return False
     except KeyError:
         return False
 
 
-def load_multiple_tick_files(dir_path, provider, into_table, overwrite):
+def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
     """
 
     Args:
@@ -174,11 +170,10 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite):
             logger.info('Already in database {}-{} in {}'.format(symbol, provider, each_file))
         else:
             df = prepare_data_for_securities_master(each_file)
-            write_to_db_with_dataframe(client=db_client,
-                                       data=df,
-                                       tags=tags,
-                                       into_table=into_table)
-
+            writer(client=db_client,
+                   data=df,
+                   tags=tags,
+                   into_table=into_table)
 
     logger.info('All files loaded')
 
@@ -187,17 +182,11 @@ if __name__ == '__main__':
     setup_logging()
     logger = logging.getLogger(__name__)
 
+    t0 = datetime.datetime.now()
     my_dir = r"D:\Trading\data\clean_fxcm\LOADED"
-    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_tick', overwrite=False)
+    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_ticks')
+    t1 = datetime.datetime.now()
+
+    logger.info('TOTAL RUNNING TIME WAS: {}'.format())
 
 
-    # gen = query_to_db().get_points()
-    # for x in gen:
-    #    print(x)
-
-    #my_path = "/media/sf_Trading/data/example_data/small.csv.gz"
-    #x = prepare_data_for_securities_master(my_path)
-    #print(x.head(10))
-    #write_to_db(my_client, x, 'eurusd')
-    #ans = query_to_db(my_client)
-    #print(ans)
