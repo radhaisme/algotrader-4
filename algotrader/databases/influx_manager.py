@@ -87,6 +87,3 @@ def db_server_info():
         print(m)
 
 
-
-if __name__ == '__main__':
-    print(available_series('fx_tick'))
