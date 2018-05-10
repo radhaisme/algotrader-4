@@ -175,7 +175,7 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
                    tags=tags,
                    into_table=into_table)
 
-        logger.info('All files loaded')
+    logger.info('All files loaded')
 
 
 def main():
