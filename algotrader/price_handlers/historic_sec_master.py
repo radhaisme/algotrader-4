@@ -1,7 +1,7 @@
 import datetime
 
 from common.utilities import iter_islast
-from databases.influx_manager import influx_client
+from influx_manager import influx_client
 
 
 class HistoricTickPriceHandler:

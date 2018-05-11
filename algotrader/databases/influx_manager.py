@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import logging
+import sys
+
+from log.logging import setup_logging
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
+from influxdb.exceptions import *
 
 from common.config import influx_config
 
@@ -25,20 +30,23 @@ def influx_client(client_type='client'):
 
     try:
         if client_type == 'client':
-            return InfluxDBClient(host, port, user, password, dbname)
+            client = InfluxDBClient(host, port, user, password, dbname)
+            logging.info('Logged to {} influx as client with user \'{}\''.format(dbname, user))
+            return client
         elif client_type == 'dataframe':
-            return DataFrameClient(host, port, user, password, dbname)
-    except Exception as e:
-        print(e)
-        return False
+            client = DataFrameClient(host, port, user, password, dbname)
+            logging.info('Logged to {} influx as dataframe client with user \'{}\''.format(dbname, user))
+            return client
+    except (InfluxDBServerError, InfluxDBClientError):
+        logging.exception('Can not connect to database Influxdb.')
+        sys.exit(-1)
 
 
-def available_series(measurement='fx_tick'):
+def available_series(measurement):
     """
     List of tuples (symbol, provider) with available series in a measurement
     Args:
         measurement: "table" to query
-        group_by: tag to group by
 
     Returns: list of available series within the measurement
 
@@ -47,9 +55,12 @@ def available_series(measurement='fx_tick'):
     cql = "SELECT LAST(bid), symbol, provider " \
           "FROM \"{}\" " \
           "GROUP BY symbol".format(measurement)
-
-    ans = influx_client().query(query=cql)
-    return [(x[0].get('symbol'), x[0].get('provider')) for x in ans]
+    try:
+        ans = influx_client().query(query=cql)
+        return [(x[0].get('symbol'), x[0].get('provider')) for x in ans]
+    except (InfluxDBClientError, InfluxDBClient):
+        logging.exception('Can not obtain series info.')
+        sys.exit(-1)
 
 
 def db_server_info():
@@ -85,5 +96,45 @@ def db_server_info():
     print('\n############## MEASUREMENTS ###############\n')
     for m in msr:
         print(m)
+
+
+def series_info(measurement, series):
+    """Return count information about each series in a measurement
+
+    Args:
+        measurement: "table" to query
+        series:  tuple(symbol, provider)
+    Returns: list of available series within the measurement
+
+    """
+
+    cql = "SELECT COUNT(*) " \
+          "FROM \"{}\" " \
+          "WHERE symbol=\'{}\' AND " \
+          "provider=\'{}\'".format(measurement, series[0], series[1])
+
+    try:
+        print("Querying {}.\nThis action can take some time. Be patient.".format(series))
+        x = influx_client().query(query=cql)
+        points = x.point_from_cols_vals(['count_ask', 'count_bid'], ['count_ask', 'count_bid'])
+
+        print(points)
+        # ans = q[0][1][:1]
+        # print(ans)
+    except (InfluxDBClientError, InfluxDBClientError):
+        logging.exception('Can not obtain series info.')
+        sys.exit(-1)
+
+
+if __name__ == '__main__':
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
+    table = 'fx_tick'
+    ser = ('EURUSD', 'fxcm')
+
+    # all_series= available_series(table)
+    # print(all_series)
+    series_info(table, ser)
 
 

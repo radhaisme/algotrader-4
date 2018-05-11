@@ -77,13 +77,13 @@ def load_all_series(input_table='fx_ticks'):
     t0 = datetime.datetime.now()
 
     tick_series = available_series(input_table)
-    for each_serie in tick_series:
+    for each_series in tick_series:
         t1 = datetime.datetime.now()
 
-        tick_resampling(symbol=each_serie[0], provider=each_serie[1], input_table=input_table)
+        tick_resampling(symbol=each_series[0], provider=each_series[1], input_table=input_table)
 
         t2 = datetime.datetime.now()
-        logger.info('TOTAL RUNNING TIME FOR {} - {}'.format(each_serie[0], t2 - t1))
+        logger.info('TOTAL RUNNING TIME FOR {} - {}'.format(each_series[0], t2 - t1))
 
     t4 = datetime.datetime.now()
     logger.info('TOTAL RUNNING TIME - {}'.format(t4 - t0))
@@ -106,18 +106,24 @@ def tick_resampling(symbol, provider, input_table, custom_dates=False,
 
     """
 
+    # Define the bounds
     if custom_dates:
+        # We use the given dates as bounds
         start_time = pd.to_datetime(start_time)
         end_time = pd.to_datetime(end_time)
     else:
+        # We find the bounds of the series in the database
         bounds = time_bounds(measurement=input_table, symbol=symbol, provider=provider)
         start_time = bounds['FIRST']
         end_time = bounds['LAST']
 
     client = influx_client(client_type='dataframe')
+
+    # Define the time extension of each query.
+    # The bigger the number, more RAM needed.
     delta = datetime.timedelta(hours=24)
 
-    while start_time < end_time:
+    while start_time <= end_time:
         logger.info('Working on {} at {}'.format(symbol, start_time))
         partial_end = start_time + delta
 
@@ -128,13 +134,16 @@ def tick_resampling(symbol, provider, input_table, custom_dates=False,
               'AND time<\'{}\''.format(input_table, symbol, provider, start_time, partial_end)
 
         try:
+            # Get the ticks requested
             ticks = client.query(cql)[input_table]
         except KeyError:
             logger.warning('No data for {} at {}'.format(symbol, start_time))
             break
 
+        # Call the re sampling function
         bars = ticks_to_bars(ticks)
 
+        # Insert into securities master database
         insert_bars_to_sec_master(client, bars, frequency, symbol, provider)
 
         start_time = partial_end
@@ -144,7 +153,7 @@ def tick_resampling(symbol, provider, input_table, custom_dates=False,
 
 def ticks_to_bars(ticks, frequency='1min'):
     """
-    Resample ticks [timestamp bid, ask) to bars OHLC of selected frequency
+    Re sample ticks [timestamp bid, ask) to bars OHLC of selected frequency
     https://stackoverflow.com/a/17001474/3512107
 
     Args:
@@ -186,8 +195,10 @@ def ticks_to_bars(ticks, frequency='1min'):
     ticks.drop(['bid', 'ask'], axis=1, inplace=True)
 
     bars = ticks.resample(rule=frequency, level=0).ohlc()
+
     # Drop N/A. When there are no tick, do not create a bar
     bars.dropna(inplace=True)
+
     # Drop multi-index, Influx write has problem with that
     bars.columns = bars.columns.droplevel(0)
 
