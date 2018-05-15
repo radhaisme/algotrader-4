@@ -7,16 +7,16 @@ from log.logging import setup_logging
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 from influxdb.exceptions import *
+from pprint import pprint
 
 from common.config import influx_config
 
 
 def influx_client(client_type='client'):
-    """
-    Instantiate a connection to the InfluxDB.
+    """Instantiate a connection to the InfluxDB.
 
-    Returns: influx client
-
+    :param client_type:
+    :return:
     """
     # Get the configuration info
     config = influx_config()
@@ -43,15 +43,11 @@ def influx_client(client_type='client'):
 
 
 def available_series(measurement):
+    """Return list of tuples (symbol, provider) with available series in a measurement
+
+    :param measurement:
+    :return:
     """
-    List of tuples (symbol, provider) with available series in a measurement
-    Args:
-        measurement: "table" to query
-
-    Returns: list of available series within the measurement
-
-    """
-
     cql = "SELECT LAST(bid), symbol, provider " \
           "FROM \"{}\" " \
           "GROUP BY symbol".format(measurement)
@@ -64,11 +60,10 @@ def available_series(measurement):
 
 
 def db_server_info():
-    """
-
-    Returns: Print out info about the database
+    """Print out info about the Influx database
 
     """
+
     client = influx_client()
 
     dbs = client.get_list_database()
@@ -97,15 +92,15 @@ def db_server_info():
     for m in msr:
         print(m)
 
+    client.close()
 
-def series_info(measurement, series):
-    """Return count information about each series in a measurement
 
-    Args:
-        measurement: "table" to query
-        series:  tuple(symbol, provider)
-    Returns: list of available series within the measurement
+def series_info_count(measurement, series):
+    """Return count information about one series in a measurement.
 
+    :param measurement:
+    :param series:
+    :return:
     """
 
     cql = "SELECT COUNT(*) " \
@@ -114,27 +109,32 @@ def series_info(measurement, series):
           "provider=\'{}\'".format(measurement, series[0], series[1])
 
     try:
-        print("Querying {}.\nThis action can take some time. Be patient.".format(series))
-        x = influx_client().query(query=cql)
-        points = x.point_from_cols_vals(['count_ask', 'count_bid'], ['count_ask', 'count_bid'])
-
-        print(points)
-        # ans = q[0][1][:1]
-        # print(ans)
+        logging.info("Querying {} at {}".format(series, measurement))
+        client = influx_client()
+        response = client.query(query=cql)
+        client.close()
     except (InfluxDBClientError, InfluxDBClientError):
         logging.exception('Can not obtain series info.')
         sys.exit(-1)
+
+    datapoint = next(response.get_points())
+    del datapoint['time']
+
+    return datapoint
 
 
 if __name__ == '__main__':
     setup_logging()
     logger = logging.getLogger(__name__)
 
-    table = 'fx_tick'
-    ser = ('EURUSD', 'fxcm')
+    tables = ['fx_tick', 'fx_ticks']
+    series = [('AUDCAD', 'fxcm'), ('AUDCHF', 'fxcm'), ('AUDJPY', 'fxcm')]
 
-    # all_series= available_series(table)
-    # print(all_series)
-    series_info(table, ser)
+    ans = {}
+    for each_t in tables:
+        for each_ser in series:
+            my_k = each_t + '_' + each_ser[0]
+            ans[my_k] = series_info_count(measurement=each_t, series=each_ser)
 
+    pprint(ans)
 

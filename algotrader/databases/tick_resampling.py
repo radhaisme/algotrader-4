@@ -6,21 +6,18 @@ from databases.influx_manager import available_series
 from databases.influx_manager import influx_client
 from influxdb.exceptions import *
 from log.logging import setup_logging
-
+from common.utilities import fn_timer
 import logging
 
 
 def time_bounds(measurement, symbol, provider, position=['FIRST', 'LAST']):
-    """
-    Get the first and/or last datetime for a series in a measurement
-    Args:
-        measurement: table
-        symbol: tag
-        provider: tag
-        position: list
+    """ Get the first and/or last datetime for a series in a measurement
 
-    Returns: dict
-
+    :param measurement:
+    :param symbol:
+    :param provider:
+    :param position:
+    :return:
     """
     client = influx_client()
     ans = {}
@@ -52,11 +49,8 @@ def time_bounds(measurement, symbol, provider, position=['FIRST', 'LAST']):
 def one_minute_adjustment(datetime_to_adjust):
     """
 
-    Args:
-        datetime_to_adjust:
-
-    Returns: datetime adjustment to the previous minute
-
+    :param datetime_to_adjust:
+    :return:
     """
     ans = datetime_to_adjust.replace(minute=0)
     ans = ans.replace(second=0)
@@ -66,13 +60,10 @@ def one_minute_adjustment(datetime_to_adjust):
 
 
 def load_all_series(input_table='fx_ticks'):
-    """
-    Load all series of a table and call resampling
-    Args:
-        input_table: ticks table [timestamp, bid, ask]
+    """ Load all series of a table and call resampling
 
-    Returns:
-
+    :param input_table:
+    :return:
     """
     t0 = datetime.datetime.now()
 
@@ -89,21 +80,19 @@ def load_all_series(input_table='fx_ticks'):
     logger.info('TOTAL RUNNING TIME - {}'.format(t4 - t0))
 
 
+@fn_timer
 def tick_resampling(symbol, provider, input_table, custom_dates=False,
                     start_time=None, end_time=None, frequency='1min'):
-    """
-    Re-sample 24hr of tick data for a symbol-provider loading to securities master
-    Args:
-        symbol:
-        provider:
-        input_table:
-        custom_dates:
-        start_time:
-        end_time:
-        frequency:
+    """Re sample tick data in securities master to desired frequency
 
-    Returns:
-
+    :param symbol:
+    :param provider:
+    :param input_table:
+    :param custom_dates:
+    :param start_time:
+    :param end_time:
+    :param frequency:
+    :return:
     """
 
     # Define the bounds
@@ -136,29 +125,23 @@ def tick_resampling(symbol, provider, input_table, custom_dates=False,
         try:
             # Get the ticks requested
             ticks = client.query(cql)[input_table]
+            # Call the re sampling function
+            bars = ticks_to_bars(ticks)
+            # Insert into securities master database
+            insert_bars_to_sec_master(client, bars, frequency, symbol, provider)
         except KeyError:
             logger.warning('No data for {} at {}'.format(symbol, start_time))
-            break
-
-        # Call the re sampling function
-        bars = ticks_to_bars(ticks)
-
-        # Insert into securities master database
-        insert_bars_to_sec_master(client, bars, frequency, symbol, provider)
 
         start_time = partial_end
-
     client.close()
+    return bars
 
 
 def ticks_to_bars(ticks, frequency='1min'):
-    """
-    Re sample ticks [timestamp bid, ask) to bars OHLC of selected frequency
+    """Re sample ticks [timestamp bid, ask) to bars OHLC of selected frequency
     https://stackoverflow.com/a/17001474/3512107
-
-    Args:
-        ticks:
-        frequency: https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+    :param ticks:
+    :param frequency: https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
                     Alias	Description
                     B	business day frequency
                     C	custom business day frequency
@@ -187,9 +170,6 @@ def ticks_to_bars(ticks, frequency='1min'):
                     L, ms	milliseconds
                     U, us	microseconds
                     N	nanoseconds
-
-    Returns: DF
-
     """
     ticks['mid'] = ticks.mean(axis=1)
     ticks.drop(['bid', 'ask'], axis=1, inplace=True)
@@ -208,15 +188,12 @@ def ticks_to_bars(ticks, frequency='1min'):
 def insert_bars_to_sec_master(client, bars, frequency, symbol, provider):
     """
 
-    Args:
-        client:
-        bars:
-        frequency:
-        symbol:
-        provider:
-
-    Returns:
-
+    :param client:
+    :param bars:
+    :param frequency:
+    :param symbol:
+    :param provider:
+    :return:
     """
     tags = {'provider': provider,
             'symbol': symbol}
@@ -239,20 +216,21 @@ def insert_bars_to_sec_master(client, bars, frequency, symbol, provider):
         sys.exit(-1)
 
 
-if __name__ == '__main__':
-    setup_logging()
-    logger = logging.getLogger(__name__)
-
-    sdate = '2016-09-01 00:00:00.000'
-    edate = '2016-10-01 00:00:00.000'
+def main():
+    sdate = '2015-01-25 00:00:00.000'
+    edate = '2015-01-30 00:00:00.000'
     logger.info('############ NEW RUN ##################')
-    tick_resampling(symbol='EURUSD',
+
+    tick_resampling(symbol='AUDCAD',
                     provider='fxcm',
-                    input_table='fx_tick',
+                    input_table='fx_ticks',
                     custom_dates=True,
                     start_time=sdate,
                     end_time=edate)
 
 
+if __name__ == '__main__':
+    setup_logging()
+    logger = logging.getLogger(__name__)
 
-
+    main()

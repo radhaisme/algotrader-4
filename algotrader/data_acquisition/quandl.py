@@ -5,7 +5,6 @@ Created on 29 Dec 2017
 
 @author: Javier Garcia
 '''
-from oanda_common import config
 import quandl
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -22,9 +21,6 @@ def time_series(dbase, dset, col, sdate='', edate=''):
     full_ticket = dbase + '/' + dset + '.' + str(col)    
     return quandl.get(full_ticket, start_date=sdate, end_date=edate)
     
-
-
-
 
 if __name__ == '__main__':
     my_quandl_api = os.con
