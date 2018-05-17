@@ -7,7 +7,8 @@ import pathlib
 # ALL CONFIG SELECTIONS FROM HERE
 ###############################################################
 
-CONFIG = pathlib.Path(os.environ['TRADE_CONF'])
+# CONFIG = pathlib.Path(os.environ['TRADE_CONF'])
+CONFIG = pathlib.Path("/home/javier/Dropbox/trading/trading.conf")
 
 
 def oanda_connection_type():
@@ -34,10 +35,13 @@ def influx_config():
     stream = open(CONFIG, 'rt')
     return yaml.load(stream)['influx']
 
+
 def log_configuration():
     stream = open(CONFIG, 'rt')
     return yaml.load(stream)['logging']['config']
 
+
 def log_saving_path():
     stream = open(CONFIG, 'rt')
     return yaml.load(stream)['logging']['saving_path']
+

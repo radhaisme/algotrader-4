@@ -3,12 +3,13 @@
 # https://www.influxdata.com/blog/influxdb-vs-cassandra-time-series/
 # Something to read when working with a lot of data
 # https://www.dataquest.io/blog/pandas-big-data/
+import pandas as pd
+import datetime
 import logging
 import pathlib
 import sys
 
-import datetime
-import pandas as pd
+from gzip import open
 from influxdb.exceptions import *
 from pytz import utc
 
@@ -27,6 +28,9 @@ def prepare_data_for_securities_master(file_path):
     """
 
     file_path = pathlib.Path(file_path)
+
+    row_count = sum(1 for r in open(file_path, 'r')) - 1
+
     try:
         df = pd.read_csv(filepath_or_buffer=file_path,
                          compression='gzip',
@@ -38,11 +42,19 @@ def prepare_data_for_securities_master(file_path):
                          index_col=[0],
                          float_precision='high',
                          engine='c')
-        df.to_csv("D:\Trading\data\clean_fxcm\TO_LOAD\AUDCAD_2015_1.csv")
-        return df
-
     except OSError:
         logger.exception('Error reading file {}'.format(file_path))
+        sys.exit(-1)
+
+    if df.shape[0] == row_count:
+        ans = dict()
+        ans['row_count'] = row_count
+        ans['file_path'] = file_path
+        ans['data'] = df
+        return ans
+    else:
+        logger.exception('Row Count of DataFrame does not match Row Count of CSV file')
+        raise ValueError()
         sys.exit(-1)
 
 
@@ -52,12 +64,12 @@ def my_date_parser(date_string):
     :param date_string:
     :return:
     """
-    return datetime.datetime(int(date_string[6:10]),        # %Y
-                             int(date_string[:2]),          # %m
-                             int(date_string[3:5]),         # %d
-                             int(date_string[11:13]),       # %H
-                             int(date_string[14:16]),       # %M
-                             int(date_string[17:19]),       # %s
+    return datetime.datetime(int(date_string[6:10]),  # %Y
+                             int(date_string[:2]),  # %m
+                             int(date_string[3:5]),  # %d
+                             int(date_string[11:13]),  # %H
+                             int(date_string[14:16]),  # %M
+                             int(date_string[17:19]),  # %s
                              int(date_string[20:]) * 1000,  # %f
                              tzinfo=utc)
 
@@ -79,68 +91,42 @@ def writer(client, data, tags, into_table):
                             protocol=protocol,
                             field_columns=field_columns,
                             tags=tags,
-                            time_precision='u',
+                            # time_precision='ms',
                             numeric_precision='full',
                             batch_size=10000)
-        logger.info('Data insert correct')
+        logger.info('Data insert')
     except (InfluxDBServerError, InfluxDBClientError):
         logger.exception('Error data insert - {}'.format(tags))
         sys.exit(-1)
 
 
-def record_exist(client, file_path, table, symbol, provider):
-    """Checks if given record already exist in securities master database.
+def insert_validation(client, filename, table, row_count):
+    """Validate number of rows: CSV vs Database
 
     :param client:
-    :param file_path:
+    :param filename:
     :param table:
-    :param symbol:
-    :param provider:
-    :return:
+    :param row_count:
+    :return: Exception if does not match
     """
-    # read first row od csv
-    try:
-        df = pd.read_csv(filepath_or_buffer=file_path,
-                         compression='gzip',
-                         sep=',',
-                         skiprows=1,
-                         names=['price_datetime', 'bid', 'ask'],
-                         parse_dates=[0],
-                         date_parser=my_date_parser,
-                         index_col=[0],
-                         nrows=1,
-                         engine='c')
-    except OSError:
-        logger.exception('Error reading file {}'.format(file_path))
-        sys.exit(-1)
-    # We are going to look for records within the same second as the first row in the input file.
-    # the reason for this is that Influx does not keep the ms resolution of the datetime. In some
-    # cases add / subtract a nanosecond turning 00:01.290 into 00:01:289999 or similar.
-    # With the approach here implemented the worst case is less that one second error.
-    first_datetime_up = df.first_valid_index().strftime('%Y-%m-%d %H:%M:%S.000')
-    first_datetime_down = df.first_valid_index().strftime('%Y-%m-%d %H:%M:%S.999')
+    cql = 'SELECT COUNT(bid) FROM {} ' \
+          'WHERE filename=\'{}\' '.format(table,
+                                          filename)
 
-    cql = 'SELECT * FROM {} ' \
-          'WHERE symbol=\'{}\' ' \
-          'AND provider=\'{}\' ' \
-          'AND time>=\'{}\' ' \
-          'AND time<=\'{}\''.format(table,
-                                    symbol,
-                                    provider,
-                                    first_datetime_up,
-                                    first_datetime_down)
     try:
-        ans = client.query(query=cql)[table]
-
-        if (ans.first_valid_index() - df.first_valid_index()) < datetime.timedelta(seconds=1):
-            return True
-        else:
-            return False
+        rows_in_db = client.query(query=cql)[table]
     except KeyError:
-        return False
+        logger.exception('Data from {} not in database'.format(filename))
+
+    if row_count != rows_in_db['count'].iloc[0]:
+        logger.exception('Row count does not match for {} - '
+                         '{} in CSV vs {} in DB'.format(filename,
+                                                        row_count,
+                                                        rows_in_db['count'].iloc[0]))
+        raise ValueError()
 
 
-def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
+def load_multiple_tick_files(dir_path, provider, into_table):
     """ Iterates over a directory and load all the .gz files with tick data from FXCM.
         Files mus be named 'XXXYYY_YYYY_w' where:
         XXXYYY = symbol's ticket
@@ -150,7 +136,6 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
     :param dir_path:
     :param provider:
     :param into_table:
-    :param overwrite:
     :return:
     """
 
@@ -159,37 +144,42 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
     files = dir_path.glob('**/*.gz')
 
     for each_file in files:
-        logger.info('Working on {}'.format(each_file))
+        symbol = each_file.parts[-1][:6]
+        filename = each_file.parts[-1][:-7]
 
-        symbol = each_file.parts[-1][0:6]
+        logger.info('Working on {}'.format(filename))
+
         tags = {'symbol': symbol,
-                'provider': provider}
+                'provider': provider,
+                'filename': filename}
 
-        if overwrite:
-            in_database = False
-        else:
-            in_database = record_exist(db_client, each_file, into_table, symbol, provider)
+        data = prepare_data_for_securities_master(each_file)
 
-        if in_database:
-            logger.info('Already in database {}-{} at {}'.format(symbol, provider, each_file))
-        else:
-            df = prepare_data_for_securities_master(each_file)
-            writer(client=db_client,
-                   data=df,
-                   tags=tags,
-                   into_table=into_table)
+        writer(client=db_client,
+               data=data['data'],
+               tags=tags,
+               into_table=into_table)
 
-    logger.info('All files loaded')
+        insert_validation(client=db_client,
+                          table=into_table,
+                          row_count=data['row_count'],
+                          filename=filename)
+
+        logger.info('Writer insert {} rows from {}'.format(data['row_count'], filename))
+
+    logger.info('All data files inserted correctly!')
 
 
 def main():
     t0 = datetime.datetime.now()
-    my_dir = r"D:\Trading\data\clean_fxcm\TO_LOAD"
-
-    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_ticks', overwrite=True)
+    my_dir = r"/media/javier/My Passport/Trading/data/clean_fxcm/TO_LOAD/"
+    logger.info('#'*90)
+    logger.info('########################### START LOADING MULTIPLE TICK FILES ############################')
+    logger.info('#' * 90)
+    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_ticks')
     t1 = datetime.datetime.now()
 
-    logger.info('TOTAL RUNNING TIME WAS: {}'.format(t1-t0))
+    logger.info('TOTAL RUNNING TIME WAS: {}'.format(t1 - t0))
 
 
 if __name__ == '__main__':

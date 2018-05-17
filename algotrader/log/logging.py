@@ -48,31 +48,6 @@ def update_conf_file():
         yaml.dump(doc, f)
 
 
-
-
-
-
-
-# def test_fun():
-#     for n in range(10):
-#         logger.info('print: {}'.format(n))
-#     print('End')
-#
-#
-# def other_test():
-#     try:
-#         open('/path/to/does/not/exist', 'rb')
-#     except (SystemExit, KeyboardInterrupt):
-#         raise
-#     except Exception as e:
-#         logger.exception('M¡XXXXXXXXXXXXXXXXXXXXXX')
-#
-#
-# def main():
-#     logger = logging.getLogger(__name__)
-#     test_fun()
-#     # other_test()
-#
 if __name__ == '__main__':
     setup_logging()
 
