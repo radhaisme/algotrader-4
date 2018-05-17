@@ -31,11 +31,9 @@ def influx_client(client_type='client'):
     try:
         if client_type == 'client':
             client = InfluxDBClient(host, port, user, password, dbname)
-            logging.info('Logged to {} influx as client with user \'{}\''.format(dbname, user))
             return client
         elif client_type == 'dataframe':
             client = DataFrameClient(host, port, user, password, dbname)
-            logging.info('Login to {} influx as dataframe client with user \'{}\''.format(dbname, user))
             return client
     except (InfluxDBServerError, InfluxDBClientError):
         logging.exception('Can not connect to database Influxdb.')
