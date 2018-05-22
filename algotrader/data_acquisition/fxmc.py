@@ -1,59 +1,75 @@
 """
 This module import tick data provided for FXMC
 check: https://github.com/FXCMAPI/FXCMTickData
-
-The following instruments are available:
-AUDCAD,AUDCHF,AUDJPY,AUDNZD,CADCHF,EURAUD,EURCHF,EURGBP,EURJPY
-EURUSD,GBPCHF,GBPJPY,GBPNZD,GBPUSD,NZDCAD,NZDCHF.NZDJPY,NZDUSD
-USDCAD,USDCHF,USDJPY
 """
 import gzip
 import pathlib
 import sys
 import datetime
 import requests
+import logging
+import re
+from time import sleep
 
-from common.config import fxcm_data_path
+
+from common.config import fxcm_data_path, store_originals_fxcm, store_clean_fxcm
+from log.logging import setup_logging
+
+# Available symbols from FXCM server.
+SYMBOLS = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
+           'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
+           'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
+           'USDCAD', 'USDCHF', 'USDJPY']
 
 
-def get_datafiles(list_to_download, store_path):
+def in_store():
+    """Return list of files that match the predefined REGEX inside the originals store
+
+    :return: matches_lst, no_matches_lst
     """
-    Connect to FXMC server and download the data requested.
-    At the moment the server does not require authentication.
+    dir_path = pathlib.Path(store_originals_fxcm())
+    files = dir_path.glob('**/*.*')
 
-    Args:
-        list_to_download:
-        store_path:
-        year: since 2015
-        week: week of the year
+    match = []
+    no_match = []
+    pattern = re.compile("^[A-Z]{6}_20\d{1,2}_\d{1,2}.csv.gz")
+    for filepath in files:
+        filename = filepath.parts[-1]
+        if pattern.match(filename):
+            match.append(filepath)
+        else:
+            no_match.append(filepath)
 
-    Returns: Compressed file with requested data.
-             Save the file to the data store.
-             If file already exist in store and no overwriting occur.
+    return match, no_match
+
+
+def all_possible_urls(end_date):
+    """Returns urls and saving path for all possible files to download
+
+    :param end_date:
+    :return:
     """
-
     # This is the base url and the file extension
     url = fxcm_data_path()
-    store_path = pathlib.Path(store_path)
+    store_path = pathlib.Path(store_originals_fxcm())
     url_suffix = '.csv.gz'
 
     # Set the dates
     start_dt = datetime.date(2015, 1, 1)
-    end_dt = datetime.date(2018, 3, 30)
+    end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
 
-    # Dates
+    # years
     start_year = start_dt.isocalendar()[0]
     end_year = end_dt.isocalendar()[0]
 
     # Create dict with all the required urls
     urls = {}
-    for symbol in list_to_download:
+    for symbol in SYMBOLS:
         for yr in range(start_year, end_year + 1):
             # All within same year
             if start_year == end_year:
                 start_wk = start_dt.isocalendar()[1]
                 end_wk = end_dt.isocalendar()[1]
-
             else:
                 # When more than a year - first year
                 if yr == start_year:
@@ -78,11 +94,43 @@ def get_datafiles(list_to_download, store_path):
                           'dir_path': data_folder,
                           'file_path': data_folder / file_name}
 
-                key = symbol + str(yr) + "_" + str(wk)
-                urls[key] = url_in
+                urls[file_name] = url_in
+
+    return urls
+
+
+def definitive_urls(overwrite, end_date):
+    """Remove urls for files already in store if overwrite False
+
+    :param overwrite: bol
+    :param end_date: str
+    :return: urls dictionary
+    """
+    logger.info('Building urls dictionary')
+    # Construct all possible URL and saving paths since 2015-01-01 until the end date.
+    possible_urls = all_possible_urls(end_date)
+
+    if not overwrite:
+        # What files are already in store
+        already_in_store = in_store()
+
+        for filepath in already_in_store[0]:
+            filename = filepath.parts[-1]
+            if filename in possible_urls:
+                del possible_urls[filename]
+    logger.info('Urls dictionary ready')
+    return possible_urls
+
+
+def get_files(urls):
+    """Get the files for a set of urls from fxcm server
+
+    :param urls: dic with url and saving paths
+    :return:
+    """
+    logger.info('Request for files started. {} files in queue'.format(len(urls)))
 
     # Run for every file
-    err = []
     for key in urls:
         dir_path = urls[key]['dir_path']
         file_path = urls[key]['file_path']
@@ -93,44 +141,35 @@ def get_datafiles(list_to_download, store_path):
         pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
         # Check for the created directory.
         if not pathlib.Path.is_dir(dir_path):
-            print("Error creating the directory: {}".format(dir_path))
-            sys.exit()
+            logger.exception("Error creating the directory: {}".format(dir_path))
+            sys.exit(-1)
 
         try:
-            #time.sleep(2)
-            # Check if file already exist
-            if not pathlib.Path.is_file(file_path):
-                # make the request
-                print('Requesting: {}'.format(url))
-                r = requests.get(url, timeout=60)
-                print('Response status: {}'.format(r.status_code))
+            sleep(2)
+            # make the request
+            logger.info('Requesting: {}'.format(url))
+            r = requests.get(url, timeout=60)
+            logger.info('Response status: {}'.format(r.status_code))
 
-                # Save the file
-                if r.status_code == 200:
-                    print('Saving file at: {}'.format(file_path))
-                    # save the file in chunks
-                    chunk_size = 5000
-                    with open(file_path, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size):
-                            f.write(chunk)
-                else:
-                    err.append(file_path)
-
+            # Save the file
+            if r.status_code == 200:
+                logger.info('Saving file at: {}'.format(file_path))
+                # save the file in chunks
+                chunk_size = 5000
+                with open(file_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size):
+                        f.write(chunk)
             else:
-                # inform file already exist
-                print('file {} already in store'.format(url))
-
+                logger.exception('Could not get file: {} - status {}'.format(file_path, r.status_code))
+                sys.exit(-1)
         except requests.exceptions.RequestException as e:
-            print(e)
-            # sys.exit(1)
+            logger.exception('Error requesting: {}'.format(url))
+            sys.exit(-1)
 
-    print('==================================================')
-    print('Errors: {}'.format(err))
-    print('==================================================')
-    print('All file successfully downloaded')
+    logger.info('All files processed')
 
 
-def clean_fxmc_file(original_path, clean_path):
+def clean_fxcm_originals():
     """
     FXMC file come with invalid characters '\x00' that you must clean first
     https://goo.gl/1zoTST
@@ -139,12 +178,12 @@ def clean_fxmc_file(original_path, clean_path):
 
     """
     # Get the file list of the original downloads
-    orig_dir_path = pathlib.Path(original_path)
+    orig_dir_path = pathlib.Path(store_originals_fxcm())
     original_files = list(orig_dir_path.glob('**/*.gz'))
     total_original_files = len(original_files)
 
     # Get the file list of the clean files, if any.
-    clean_dir_path = pathlib.Path(clean_path)
+    clean_dir_path = pathlib.Path(store_clean_fxcm())
     clean_files = list(clean_dir_path.glob('**/*.gz'))
 
     counter = 0
@@ -169,32 +208,26 @@ def clean_fxmc_file(original_path, clean_path):
                 f.write(data.decode('utf-8').replace('\x00', '').encode('utf-8'))
 
             counter += 1
-            print('Doing {} out of of {} - {:.3%}'.format(counter, total_original_files,
-                  counter / total_original_files))
-            print('File: {}'.format(clean_file_path))
+            logger.info('Doing {} out of {} - {:.3%}'.format(counter, total_original_files,
+                                                             counter / total_original_files))
+            logger.info('Clean file: {}'.format(clean_file_path))
         else:
             counter += 1
-            print('File {} already in store'.format(clean_file_path))
+            logger.info('Doing {} out of {} - {:.3%}'.format(counter, total_original_files,
+                                                             counter / total_original_files))
+            logger.info('File {} already in store'.format(clean_file_path))
 
+
+def main():
+    urls = definitive_urls(overwrite=False, end_date='2018-04-30')
+    get_files(urls)
+    clean_fxcm_originals()
 
 
 if __name__ == '__main__':
-    # 1. Download files
-    #symbols = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
-    #           'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
-    #           'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
-    #           'USDCAD', 'USDCHF', 'USDJPY']
-    store = "D:\Trading\data\clean_fxcm\TO_LOAD\original"
-    # get_datafiles(list_to_download=symbols, store_path=store)
-
-    # 2. Clean the files for Null Characters
-    saving_dir_path = "D:\Trading\data\clean_fxcm\TO_LOAD\clean"
-    clean_fxmc_file(original_path=store, clean_path=saving_dir_path)
-
-    # 3. Check files integrity after the clean up.
-    #main()
-
-
+    setup_logging()
+    logger = logging.getLogger('fxcm')
+    main()
 
 
 

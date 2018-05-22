@@ -181,7 +181,6 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=True):
 
     # Define what is considered an error (absolute difference) and define separated log for these errors.
     error_tolerance = 100
-    file_errors = pd.DataFrame(columns=['filename', 'csv', 'sec_master', 'diff'])
 
     # Loop each file in directory
     for each_file in files:
@@ -270,7 +269,7 @@ def file_insert_validation():
 
 if __name__ == '__main__':
     setup_logging()
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger('FXCM LOADING INTO DATABASE')
     multiple_file_insert()
-    # file_insert_validation()
+
 

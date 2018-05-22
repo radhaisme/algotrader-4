@@ -22,7 +22,6 @@ def setup_logging(default_level=logging.INFO):
 
     if path.is_file():
         update_conf_file()
-
         with open(path, 'rt') as f:
             config = yaml.safe_load(f.read())
         logging.config.dictConfig(config)
