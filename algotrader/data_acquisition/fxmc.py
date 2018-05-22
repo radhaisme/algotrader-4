@@ -11,7 +11,6 @@ import logging
 import re
 from time import sleep
 
-
 from common.config import fxcm_data_path, store_originals_fxcm, store_clean_fxcm
 from log.logging import setup_logging
 
