@@ -10,7 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-# Get configuration path from enviromental variable
+# Get configuration path from environmental variable
 CONFIG = os.environ['TRADE_CONF']
 
 
