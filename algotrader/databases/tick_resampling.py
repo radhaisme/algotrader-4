@@ -231,6 +231,5 @@ def main():
 
 if __name__ == '__main__':
     setup_logging()
-    logger = logging.getLogger(__name__)
-
+    logger = logging.getLogger('tick_resampling')
     main()
