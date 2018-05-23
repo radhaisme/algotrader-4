@@ -180,7 +180,7 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=True):
     db_client = influx_client(client_type='dataframe')
 
     # Define what is considered an error (absolute difference) and define separated log for these errors.
-    error_tolerance = 100
+    error_tolerance = 10
 
     # Loop each file in directory
     for each_file in files:
