@@ -8,20 +8,23 @@ https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
 import logging
 import logging.config
 import pathlib
-
 import yaml
 
 from common.config import log_configuration, log_saving_path
 
 
 def setup_logging(default_level=logging.INFO):
-    """
-    Setup logging configuration
+    """Setup logging configuration
+
+    :param default_level:
+    :return:
     """
     path = pathlib.Path(log_configuration())
 
     if path.is_file():
+        # Saving path update
         update_conf_file()
+        # read configuration
         with open(path, 'rt') as f:
             config = yaml.safe_load(f.read())
         logging.config.dictConfig(config)
@@ -30,9 +33,7 @@ def setup_logging(default_level=logging.INFO):
 
 
 def update_conf_file():
-    """
-    Update the logging configuration file with the saving path of the log files as defined in the CONFIG file
-
+    """Update the logging configuration file with the paths defined in the CONFIG file
     """
     saving_path = pathlib.Path(log_saving_path())
     config_file = pathlib.Path(log_configuration())
