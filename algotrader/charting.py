@@ -2,14 +2,13 @@ from databases.influx_manager import influx_client
 from math import pi
 from bokeh.plotting import figure, show, output_file
 import pandas as pd
-import plotly as py
-import plotly.graph_objs as go
-
+from plotly.offline import download_plotlyjs, init_notebook_mode, plot
+from plotly.graph_objs import *
 
 def get_data():
 
-    cql = 'SELECT * FROM fx_1min WHERE '
-    db_client = influx_client(client_type='dataframe')
+    cql = 'SELECT * FROM fx_1min limit 1000'
+    db_client = influx_client(client_type='dataframe', user_type='reader')
     data = db_client.query(cql)['fx_1min']
 
     return data
@@ -37,18 +36,17 @@ def plot_bokeh(data):
 
 
 def plot_plotly(data):
-    py.offline.init_notebook_mode(connected=True)
-    trace = go.Candlestick(x=data.index,
-                           open=data.open,
-                           high=data.high,
-                           low=data.low,
-                           close=data.close)
-
+    init_notebook_mode(connected=False)
+    trace = Candlestick(x=data.index,
+                        open=data.open,
+                        high=data.high,
+                        low=data.low,
+                        close=data.close)
     data = [trace]
-    py.offline.iplot(data, filename='simple_candlestick')
+    plot(data, filename='simple_candlestick.html')
+
 
 if __name__ == '__main__':
-
     d = get_data()
     # plot_bokeh(d)
     plot_plotly(d)
