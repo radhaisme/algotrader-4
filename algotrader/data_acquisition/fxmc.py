@@ -21,25 +21,22 @@ SYMBOLS = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
            'USDCAD', 'USDCHF', 'USDJPY']
 
 
-def in_store():
+def in_store(store_path):
     """Return list of files that match the predefined REGEX inside the originals store
 
     :return: matches_lst, no_matches_lst
     """
-    dir_path = pathlib.Path(store_originals_fxcm())
+    dir_path = pathlib.Path(store_path)
     files = dir_path.glob('**/*.*')
 
     match = []
-    no_match = []
     pattern = re.compile("^[A-Z]{6}_20\d{1,2}_\d{1,2}.csv.gz")
     for filepath in files:
         filename = filepath.parts[-1]
         if pattern.match(filename):
             match.append(filepath)
-        else:
-            no_match.append(filepath)
 
-    return match, no_match
+    return match
 
 
 def all_possible_urls(end_date):
@@ -111,9 +108,9 @@ def definitive_urls(overwrite, end_date):
 
     if not overwrite:
         # What files are already in store
-        already_in_store = in_store()
+        already_in_store = in_store(store_originals_fxcm())
 
-        for filepath in already_in_store[0]:
+        for filepath in already_in_store:
             filename = filepath.parts[-1]
             if filename in possible_urls:
                 del possible_urls[filename]
