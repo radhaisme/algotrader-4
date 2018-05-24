@@ -14,10 +14,12 @@ from influxdb.exceptions import *
 from pytz import utc
 
 from databases.influx_manager import influx_client
+from data_acquisition.fxmc import in_store
+from common.config import store_clean_fxcm
 from log.logging import setup_logging
 
 
-def prepare_data_for_securities_master(file_path, rows_expected):
+def prepare_data_for_securities_master(file_path):
     """Opens a file downloaded from FXMC and format it to upload to Securities Master databases
 
 
@@ -45,13 +47,8 @@ def prepare_data_for_securities_master(file_path, rows_expected):
         logger.exception('Error reading file {}'.format(filename))
         sys.exit(-1)
 
-    if df.shape[0] == rows_expected:
-        logger.info('File: {} ready for insert'.format(filename))
-        return df
-    else:
-        logger.exception('Row Count of DataFrame does not match Row Count of CSV file')
-        raise ValueError()
-        sys.exit(-1)
+    logger.info('File: {} ready for insert'.format(filename))
+    return df
 
 
 def my_date_parser(date_string):
@@ -98,27 +95,60 @@ def writer(client, data, tags, into_table):
         sys.exit(-1)
 
 
-def insert_validation(client, filename, table, row_count, abs_tolerance=100):
+def insert_validation(filepath, table, tags, validation_type, abs_tolerance=10):
     """Validate number of rows: CSV vs Database
 
-    :param client:
-    :param filename:
-    :param table:
-    :param row_count:
-    :param abs_tolerance:
-    :rtype: dict
-    :return:
+
     """
-    cql = 'SELECT COUNT(bid) FROM {} ' \
-          'WHERE filename=\'{}\' '.format(table, filename)
+    client = influx_client(client_type='dataframe')
+
+    if validation_type == 'full':
+        cql = 'SELECT COUNT(bid) FROM {} ' \
+              'WHERE filename=\'{}\' ' \
+              'AND provider=\'{}\' ' \
+              'AND symbol=\'{}\''.format(table,
+                                         tags['filename'],
+                                         tags['provider'],
+                                         tags['symbol'])
+    elif validation_type == 'fast':
+        cql = 'SELECT row_count, difference FROM {} ' \
+              'WHERE filename=\'{}\' ' \
+              'AND provider=\'{}\' ' \
+              'AND symbol=\'{}\''.format(table + '_validation',
+                                         tags['filename'],
+                                         tags['provider'],
+                                         tags['symbol'])
+    else:
+        logger.exception(
+            'Validation type must be either \'full\' or \'fast\'. Correct the parameter and lunch the function again.')
+        raise SystemExit
 
     try:
-        rows_in_db = client.query(query=cql)[table]
-    except KeyError:
-        logger.info('Data from {} not in database'.format(filename))
-        return {'value': 'Not in DB', 'csv': row_count, 'sec_master': 0, 'diff': row_count}
+        cql_ans = client.query(query=cql)
+        if validation_type == 'full':
+            rows_in_db = cql_ans[table]['row_count'].iloc[0]
+            row_count = sum(1 for _r in open(pathlib.Path(filepath), 'r')) - 1
 
-    difference = row_count - rows_in_db['count'].iloc[0]
+            # Now that a full validation was performed update the validation table
+            update_validation_table(client, tags, rows_in_db, row_count - rows_in_db)
+
+        elif validation_type == 'fast':
+            rows_in_db = cql_ans[table + '_validation']['row_count'].iloc[0]
+            row_count = rows_in_db + cql_ans[table + '_validation']['difference'].iloc[0]
+
+    except KeyError:
+        if validation_type == 'full':
+            logger.info('Data from {} not in database'.format(tags['filename']))
+            client.close()
+            row_count = sum(1 for _r in open(pathlib.Path(filepath), 'r')) - 1
+            return {'value': 'Not in DB', 'csv': row_count, 'sec_master': 0, 'diff': row_count}
+        elif validation_type == 'fast':
+            # if there is no info in the validation table performs full validation, even if fast was selected.
+            client.close()
+            return insert_validation(filepath=filepath, table=table, tags=tags,
+                                     validation_type='full', abs_tolerance=10)
+
+    difference = row_count - rows_in_db
     if difference == 0:
         ans = 'Exact'
     elif abs(difference) > abs_tolerance:
@@ -126,8 +156,37 @@ def insert_validation(client, filename, table, row_count, abs_tolerance=100):
     else:
         ans = 'Acceptable'
 
-    logger.info('Validation {} difference of {}'.format(ans, difference))
-    return {'value': ans, 'csv': row_count, 'sec_master': rows_in_db['count'].iloc[0], 'diff': difference}
+    logger.info('Validation {} difference of {} - validation type: {}'.format(ans, difference, validation_type))
+    return {'value': ans, 'csv': row_count, 'sec_master': rows_in_db, 'diff': difference}
+
+
+def update_validation_table(client, tags,  row_count, difference):
+    """Updates a validation table with information for a light row_count validation
+
+    """
+    protocol = 'json'
+    field_columns = ['row_count', 'difference']
+
+    data = {'row_count': [row_count],
+            'difference': [difference]}
+    df = pd.DataFrame(data=data, index=[datetime.datetime.utcnow()])
+
+    # creates a normal database client and deletes any previous series with matching tags
+    c = influx_client()
+    c.delete_series(tags=tags)
+    c.close()
+
+    # update the validation information
+    try:
+        client.write_points(dataframe=df,
+                            measurement='fx_ticks_validation',
+                            protocol=protocol,
+                            field_columns=field_columns,
+                            tags=tags)
+
+    except (InfluxDBServerError, InfluxDBClientError):
+        logger.exception('Error data insert in validation table')
+        sys.exit(-1)
 
 
 def delete_series(tags):
@@ -146,35 +205,35 @@ def delete_series(tags):
         logger.exception('Could not delete series {}'.format(tags['filename']))
 
 
-def prepare_and_insert(db_client, file_path, tags, into_table, row_count, validation):
+def prepare_and_insert(db_client, file_path, tags, into_table, validation):
 
     if validation != 'Not in DB':
         # delete series with same tags in current database
         delete_series(tags)
 
     # Turn the CSV into a dataframe ready for insert
-    data = prepare_data_for_securities_master(file_path, row_count)
+    data = prepare_data_for_securities_master(file_path=file_path)
     # insert the data to sec master database
     writer(client=db_client, data=data, tags=tags, into_table=into_table)
 
 
-def load_multiple_tick_files(dir_path, provider, into_table, overwrite=True):
+def load_multiple_tick_files(dir_path, provider, into_table, validation_type, overwrite=True):
     """ Iterates over a directory and load all the .gz files with tick data from FXCM.
-        Files mus be named 'XXXYYY_YYYY_w' where:
-        XXXYYY = symbol's ticket
-        YYYY   = year four digits
-        w      = week of given year.
+        Files names must match the regex: "^[A-Z]{6}_20\d{1,2}_\d{1,2}.csv.gz"
 
-    :param dir_path:
-    :param provider:
-    :param into_table:
-    :param overwrite:
+    :param dir_path: str
+    :param provider: str
+    :param into_table: str
+    :param validation_type: 'full' or 'fast'
+    :param overwrite: Boolean
     :return:
     """
 
     # Define the set of files to work with
+    # uses the in_store() function that verifies the name of the file to
+    # math the regex: "^[A-Z]{6}_20\d{1,2}_\d{1,2}.csv.gz"
     dir_path = pathlib.Path(dir_path)
-    files = dir_path.glob('**/*.gz')
+    files = in_store(dir_path)[0]
 
     # Connect to securities master database
     db_client = influx_client(client_type='dataframe')
@@ -185,54 +244,66 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=True):
     # Loop each file in directory
     for each_file in files:
         # Get some basic information about the data
-        row_count = sum(1 for _r in open(each_file, 'r')) - 1
         symbol = each_file.parts[-1][:6]
         filename = each_file.parts[-1][:-7]
-        tags = {'symbol': symbol, 'provider': provider, 'filename': filename}
+
+        tags = {'symbol': symbol,
+                'provider': provider,
+                'filename': filename}
+
         logger.info('Working on {}'.format(filename))
 
         # Validate if data already is in securities master database.
         # Number of data points in CSV must be similar (+/- tolerance) to database
         # to be considered as already inserted.
-        pre_validation = insert_validation(client=db_client, table=into_table,
-                                           row_count=row_count, filename=filename, abs_tolerance=error_tolerance)
+        pre_validation = insert_validation(filepath=each_file,
+                                           table=into_table,
+                                           tags=tags,
+                                           validation_type=validation_type,
+                                           abs_tolerance=error_tolerance)
 
         if overwrite or pre_validation['value'] == 'Not Acceptable' or pre_validation['value'] == 'Not in DB':
             prepare_and_insert(db_client=db_client, file_path=each_file,
-                               tags=tags, into_table=into_table, row_count=row_count,
-                               validation=pre_validation['value'])
+                               tags=tags, into_table=into_table, validation=pre_validation['value'])
 
             # Performance post insert validation that data is ok in database
             # Influx has some trouble with the milliseconds and sometimes drops some data.
             # Some tolerance is acceptable. Check the validation function for info.
-            post_validation = insert_validation(client=db_client, table=into_table,
-                                                row_count=row_count, filename=filename, abs_tolerance=error_tolerance)
+            post_validation = insert_validation(filepath=each_file,
+                                                table=into_table,
+                                                tags=tags,
+                                                validation_type=validation_type,
+                                                abs_tolerance=error_tolerance)
 
             if post_validation['value'] == 'Exact' or post_validation['value'] == 'Acceptable':
                 logger.info('Successful insert for {}: {} '
-                            'data points with {} difference'.format(filename, row_count,
+                            'data points with {} difference'.format(filename, post_validation['sec_master'],
                                                                     post_validation['diff']))
             else:
                 logger.error('Error insert for {}: {} difference'.format(filename, post_validation['diff']))
 
         else:
             logger.info('Data for {} already in database:'
-                        ' {} data points with {} difference'.format(filename, row_count,
-                                                                    pre_validation['diff']))
+                        ' {} data points with {} difference'
+                        ' - Validation type: {}'.format(filename,
+                                                        pre_validation['sec_master'],
+                                                        pre_validation['diff'],
+                                                        validation_type))
 
     logger.info('All data files processed!')
 
 
 def multiple_file_insert():
-    my_dir = r"/media/javier/My Passport/Trading/data/clean_fxcm/LOADED/"
 
+    my_dir = pathlib.Path(store_clean_fxcm())
     t0 = datetime.datetime.now()
 
     logger.info('#'*90)
     logger.info('########################### START LOADING MULTIPLE TICK FILES ############################')
     logger.info('#' * 90)
 
-    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_ticks', overwrite=False)
+    load_multiple_tick_files(dir_path=my_dir, provider='fxcm', into_table='fx_ticks',
+                             validation_type='fast', overwrite=False)
     t1 = datetime.datetime.now()
     logger.info('TOTAL RUNNING TIME WAS: {}'.format(t1 - t0))
 
@@ -267,9 +338,23 @@ def file_insert_validation():
     return index_csv.difference(index_db)
 
 
+def insert_one_series():
+    tags = {'filename': 'AUDCAD_2015_15',
+            'provider': 'fxcm',
+            'symbol': 'AUDCAD'}
+
+    client = influx_client(client_type='dataframe')
+    file_path = pathlib.Path(
+        '/media/javier/My Passport/Trading/data/clean_fxcm/LOADED/AUDCAD/2015/AUDCAD_2015_15.csv.gz')
+    row_count = sum(1 for _r in open(file_path, 'r')) - 1
+    prepare_and_insert(db_client=client, file_path=file_path, tags=tags, into_table='fx_ticks', validation=True,
+                       row_count=row_count)
+
+
 if __name__ == '__main__':
     setup_logging()
     logger = logging.getLogger('FXCM LOADING INTO DATABASE')
     multiple_file_insert()
 
+    # insert_one_series()
 
