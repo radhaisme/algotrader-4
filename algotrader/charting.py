@@ -5,13 +5,15 @@ import pandas as pd
 import plotly as py
 import plotly.graph_objs as go
 
+
 def get_data():
 
-    cql = 'SELECT * FROM fx_1min'
+    cql = 'SELECT * FROM fx_1min WHERE '
     db_client = influx_client(client_type='dataframe')
     data = db_client.query(cql)['fx_1min']
 
     return data
+
 
 def plot_bokeh(data):
     data["date"] = pd.to_datetime(data.index)
@@ -44,7 +46,6 @@ def plot_plotly(data):
 
     data = [trace]
     py.offline.iplot(data, filename='simple_candlestick')
-
 
 if __name__ == '__main__':
 
