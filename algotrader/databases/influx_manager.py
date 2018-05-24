@@ -7,15 +7,15 @@ from log.logging import setup_logging
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 from influxdb.exceptions import *
-from pprint import pprint
 
 from common.config import influx_config
 
 
-def influx_client(client_type='client'):
+def influx_client(client_type='client', user_type='reader'):
     """Instantiate a connection to the InfluxDB.
 
-    :param client_type:
+    :param client_type: 'client' / 'dataframe'
+    :param user_type: 'reader' / 'writer' / 'admin'
     :return:
     """
     # Get the configuration info
@@ -24,8 +24,8 @@ def influx_client(client_type='client'):
     # initialize the client
     host = config['host']
     port = config['port']
-    user = config['user']
-    password = config['password']
+    user = config['user_' + user_type]
+    password = config['password_' + user_type]
     dbname = config['database']
 
     try:
@@ -46,12 +46,12 @@ def available_series(measurement):
     :param measurement:
     :return:
     """
-    cql = "SELECT LAST(bid), symbol, provider " \
-          "FROM \"{}\" " \
-          "GROUP BY symbol".format(measurement)
+    cql = "SELECT count(*) FROM \"{}\" " \
+          "GROUP BY filename LIMIT 1".format(measurement)
     try:
-        ans = influx_client().query(query=cql)
-        return [(x[0].get('symbol'), x[0].get('provider')) for x in ans]
+        c = influx_client(client_type='dataframe', user_type='reader')
+        ans = c.query(query=cql)[measurement]
+        return [(x[0].get('symbol'), x[0].get('filename'), x[0].get('provider')) for x in ans]
     except (InfluxDBClientError, InfluxDBClient):
         logging.exception('Can not obtain series info.')
         sys.exit(-1)
@@ -62,7 +62,7 @@ def db_server_info():
 
     """
 
-    client = influx_client()
+    client = influx_client(user_type='admin')
 
     dbs = client.get_list_database()
     usr = client.get_list_users()
@@ -108,7 +108,7 @@ def series_info_count(measurement, series):
 
     try:
         logging.info("Querying {} at {}".format(series, measurement))
-        client = influx_client()
+        client = influx_client(user_type='reader')
         response = client.query(query=cql)
         client.close()
     except (InfluxDBClientError, InfluxDBClientError):
@@ -124,15 +124,8 @@ def series_info_count(measurement, series):
 if __name__ == '__main__':
     setup_logging()
     logger = logging.getLogger(__name__)
+    # db_server_info()
+    series = available_series('fx_ticks')
 
-    tables = ['fx_tick', 'fx_ticks']
-    series = [('AUDCAD', 'fxcm'), ('AUDCHF', 'fxcm'), ('AUDJPY', 'fxcm')]
-
-    ans = {}
-    for each_t in tables:
-        for each_ser in series:
-            my_k = each_t + '_' + each_ser[0]
-            ans[my_k] = series_info_count(measurement=each_t, series=each_ser)
-
-    pprint(ans)
-
+    for s in series:
+        print(s)
