@@ -3,6 +3,7 @@ from math import pi
 from bokeh.plotting import figure, show, output_file
 import pandas as pd
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot
+from plotly import figure_factory as ff
 from plotly.graph_objs import *
 
 def get_data():
@@ -37,13 +38,27 @@ def plot_bokeh(data):
 
 def plot_plotly(data):
     init_notebook_mode(connected=False)
-    trace = Candlestick(x=data.index,
-                        open=data.open,
-                        high=data.high,
-                        low=data.low,
-                        close=data.close)
-    data = [trace]
-    plot(data, filename='simple_candlestick.html')
+
+    fig = ff.create_candlestick(dates=data.index,
+                                open=data.open,
+                                high=data.high,
+                                low=data.low,
+                                close=data.close)
+    fig['layout'].update({
+        'title': 'FX 1min',
+        'yaxis': {'title': 'AUDCAD'},
+        'shapes': [{
+            'x0': '20114-12-28', 'x1': '2014-12-30',
+            'y0': 0, 'y1': 1, 'xref': 'x', 'yref': 'paper',
+            'line': {'color': 'rgb(30,30,30)', 'width': 1}
+        }],
+        'annotations': [{
+            'x': '2014-12-29', 'y': 0.05, 'xref': 'x', 'yref': 'paper',
+            'showarrow': False, 'xanchor': 'left',
+            'text': 'Official start of the recession'
+        }]
+    })
+    plot(fig, filename='simple_candlestick.html', validate=True)
 
 
 if __name__ == '__main__':
