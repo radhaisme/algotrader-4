@@ -1,37 +1,41 @@
 import datetime
-
+import logging
 from common.utilities import iter_islast
-from influx_manager import influx_client
+from databases.influx_manager import influx_client
+from influxdb.exceptions import *
 
 
-class HistoricTickPriceHandler:
+class HistoricFxTickPriceHandler:
     """
-    HistoricTickPriceHandler is designed to read the Securities Master Database
+    HistoricFxTickPriceHandler is designed to read the Securities Master Database
     running on Influxdb and query for each requested symbol and time,
     providing an interface to obtain the "latest" tick in a manner identical to a live
     trading interface.
 
+    Works with FX symbols.
     """
 
     def __init__(self, symbols_list, data_provider, start_time, end_time):
-        self.db_client = influx_client()
+
         self.symbols_list = symbols_list
         self.data_provider = data_provider
         self.start_time = start_time
         self.end_time = end_time
-
         self._tick_data = None
-        self._tick_table = 'fx_tick'
+        self._tick_table = 'fx_ticks'
 
         self. _database_query(self.symbols_list, self.start_time, self.end_time)
 
     @staticmethod
-    def is_tick(self):
+    def is_tick():
         return True
 
     @staticmethod
-    def is_bar(self):
+    def is_bar():
         return False
+
+    def _symbol_validation(self):
+        pass
 
     def _query_constructor(self, symbols_list, s_time, e_time):
         """
@@ -45,7 +49,7 @@ class HistoricTickPriceHandler:
             else:
                 all_symbols = all_symbols + str_to_add + ' OR '
 
-        final_statement = "SELECT * " \
+        final_statement = "SELECT time, ask, bid, provider, symbol " \
                           "FROM \"{}\" " \
                           "WHERE provider=\'{}\' " \
                           "AND time >= \'{}\' " \
@@ -67,10 +71,14 @@ class HistoricTickPriceHandler:
         Returns: Influx ResultSet
 
         """
-        final_statement = self._query_constructor(symbols_list, s_time, e_time)
-        self._tick_data = self.db_client.query(query=final_statement,
-                                               chunked=True,
-                                               chunk_size=1000)
+        try:
+            client = influx_client(client_type='client', user_type='reader')
+            final_statement = self._query_constructor(symbols_list, s_time, e_time)
+            self._tick_data = client.query(query=final_statement, chunked=True, chunk_size=1000)
+            client.close()
+        except (InfluxDBClientError, InfluxDBServerError):
+            logging.exception('Can not query securities master.')
+            raise SystemError
 
     def get_new_tick(self):
         """
@@ -101,20 +109,4 @@ class HistoricBarPriceHandler:
                                              self.data_provider,
                                              self.start_time,
                                              self.end_time)
-
-
-if __name__ == '__main__':
-    start = datetime.datetime.now()
-    symbols = ['EURUSD']
-    provider = 'fxcm'
-    s_date = '2017-02-01 15:00:00.000'
-    e_date = '2017-02-01 15:01:00.100'
-
-    ticks = HistoricTickPriceHandler(symbols, provider, s_date, e_date)
-
-
-    c = 0
-    for t in ticks.get_new_tick():
-        print('{}: {}'.format(c, t))
-        c += 1
 

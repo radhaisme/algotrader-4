@@ -1,6 +1,12 @@
 # coding=utf-8
 
 import queue
+from price_handlers.historic_sec_master import HistoricFxTickPriceHandler
+from log.logging import setup_logging
+import logging
+import datetime
+
+
 class Backtester():
     """
     Encapsulates the settings and components for carrying out
@@ -25,4 +31,26 @@ class Backtester():
     def _generate_components_instances(self):
         try:
             print('Instantiating data handler')
-            self.data_handler =
+            self.data_handler =1
+        except:
+            pass
+
+
+if __name__ == '__main__':
+    setup_logging()
+    logger = logging.getLogger('Backtester')
+
+    start = datetime.datetime.now()
+    symbols = ['AUDCHF', 'AUDCAD']
+    provider = 'fxcm'
+    s_date = '2018-02-06 15:00:00'
+    e_date = '2018-02-06 15:05:00'
+
+    ticks = HistoricFxTickPriceHandler(symbols, provider, s_date, e_date)
+
+
+    c = 0
+    for t in ticks.get_new_tick():
+        print('{}: {}'.format(c, t))
+        c += 1
+
