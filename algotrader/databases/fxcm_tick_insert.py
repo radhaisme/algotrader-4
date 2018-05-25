@@ -8,7 +8,7 @@ import datetime
 import logging
 import pathlib
 import sys
-
+from collections import OrderedDict
 from gzip import open
 from influxdb.exceptions import *
 from pytz import utc
@@ -16,6 +16,73 @@ from data_acquisition.fxmc import in_store
 from databases.influx_manager import influx_client
 from log.logging import setup_logging
 from common.config import store_clean_fxcm
+
+
+def series_by_filename(tag, dir_path):
+    """Returns dictionary with only path for files already in database
+
+    :param tag: 'filename'
+    :param dir_path: base path
+    :return: {filename: filepath
+    """
+    database = 'securities_master'
+
+    cql = 'SHOW TAG VALUES ON \"{}\" WITH KEY=\"{}\"'.format(database, tag)
+    try:
+        client = influx_client(client_type='client', user_type='reader')
+        response = client.query(cql).items()[0][1]
+        client.close()
+    except InfluxDBClientError:
+        logger.exception('Could not query series in table')
+        raise SystemError
+
+    ans = OrderedDict()
+    for r in response:
+        filename = r['value']
+        store_path = store_path_constructor(filename=filename, dir_path=dir_path)
+        ans[filename] = store_path
+    return ans
+
+
+def series_in_table(table, dir_path):
+    """Returns dictionary with info of all series in a given table
+
+    :param table: table name
+    :param dir_path: base path
+    :return: {filename: {row_count, filepath}
+    """
+
+    cql = 'SELECT COUNT(bid) FROM {} GROUP BY filename'.format(table)
+    try:
+        client = influx_client(client_type='dataframe', user_type='reader')
+        response = client.query(cql).items()
+        client.close()
+    except InfluxDBClientError:
+        logger.exception('Could not query series in table')
+        raise SystemError
+
+    ans = dict()
+    for v in response:
+        filename = v[0][1][0][1]
+        row_count = v[1]['count'].iloc[0]
+        store_path = store_path_constructor(filename=filename, dir_path=dir_path)
+        ans[filename] = {'row_count': row_count,
+                         'filepath': store_path}
+    return ans
+
+
+def store_path_constructor(filename, dir_path):
+    """Construct a filepath object for fxcm file store in the designated clean store
+
+    :param filename: regex "^[A-Z]{6}_20\d{1,2}_\d{1,2}" ex: "AUDCAD_2015_1"
+    :param dir_path: base path
+    :return: full path
+    """
+    store = pathlib.Path(dir_path)
+    symbol = filename[:6]
+    yr = filename[7:11]
+    full_filename = filename + '.csv.gz'
+    return store / symbol / yr / full_filename
 
 
 def prepare_data_for_securities_master(file_path):
@@ -129,14 +196,41 @@ def delete_series(tags):
     :param tags:
     :return:
     """
-    logger.info('Deleting series: {}'.format(tags['filename']))
+
     try:
         client = influx_client(client_type='client', user_type='writer')
         client.delete_series(tags=tags)
         client.close()
-        logger.info('Series {} deleted.'.format(tags['filename']))
     except (InfluxDBClientError, InfluxDBServerError):
         logger.exception('Could not delete series {}'.format(tags['filename']))
+
+
+def get_files_to_load(table, dir_path, overwrite):
+
+    # Define the set of files to work with
+    dir_path = pathlib.Path(dir_path)
+    logger.info('Constructing list of files to insert')
+    all_possible_files = in_store(dir_path)
+
+    if overwrite:
+        files = all_possible_files
+    else:
+        logger.info('Verification what is already in database. Be patient. !!!')
+        already_in_db = series_by_filename(tag='filename', dir_path=dir_path)
+        # Deletes last inserted series. this is done for safety, because if last time
+        # the loading function was stopped then the last series could be incomplete.
+        last_insert = list(already_in_db.keys())[-1]
+        delete_series(tags={'filename': last_insert})
+
+        logger.info('{} files already loaded into database'.format(len(already_in_db)))
+        for _k, v in already_in_db.items():
+            filepath = pathlib.Path(v)
+            if filepath in all_possible_files:
+                all_possible_files.remove(filepath)
+        files = all_possible_files
+
+    logger.info('{} files for insert'.format(len(all_possible_files)))
+    return files
 
 
 def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
@@ -146,9 +240,7 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
 
     """
 
-    # Define the set of files to work with
-    dir_path = pathlib.Path(dir_path)
-    files = in_store(dir_path)
+    files = get_files_to_load(table=into_table, dir_path=dir_path, overwrite=overwrite)
 
     # Loop each file in directory
     for each_file in files:
@@ -164,7 +256,7 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
         # to be considered as already inserted.
         pre_validation = insert_validation(filepath=each_file, table=into_table, tags=tags)
 
-        if overwrite or pre_validation['value'] == 'Not Acceptable' or pre_validation['value'] == 'Not in DB':
+        if pre_validation['value'] == 'Not Acceptable' or pre_validation['value'] == 'Not in DB':
             # deletes series with same tags if already in database
             delete_series(tags=tags)
             # turn the CSV into a dataframe ready for insert
