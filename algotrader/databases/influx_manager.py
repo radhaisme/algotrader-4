@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from builtins import SystemError
 
 from log.logging import setup_logging
 from influxdb import DataFrameClient
@@ -35,9 +36,9 @@ def influx_client(client_type='client', user_type='reader'):
         elif client_type == 'dataframe':
             client = DataFrameClient(host, port, user, password, dbname)
             return client
-    except (InfluxDBServerError, InfluxDBClientError):
+    except (InfluxDBServerError, InfluxDBClientError, KeyError):
         logging.exception('Can not connect to database Influxdb.')
-        sys.exit(-1)
+        raise SystemError
 
 
 def available_series(measurement):

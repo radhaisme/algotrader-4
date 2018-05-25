@@ -23,36 +23,35 @@ class Event(object):
 class TickEvent(Event):
     """
     Handles the event of receiving a new market update tick,
-    which is defined as a ticker symbol and associated best
+    which is defined as a symbol symbol and associated best
     bid and ask from the top of the order book.
     """
-    def __init__(self, ticker, time, bid, ask):
+    def __init__(self, symbol, time, bid, ask):
         """
         Initialises the TickEvent.
 
         Parameters:
-        ticker - The ticker symbol, e.g. 'GOOG'.
+        symbol - The symbol symbol, e.g. 'GOOG' / 'EURUSD'.
         time - The timestamp of the tick
         bid - The best bid price at the time of the tick.
         ask - The best ask price at the time of the tick.
         """
         self.type = EventType.TICK
-        self.ticker = ticker
+        self.symbol = symbol
         self.time = time
         self.bid = bid
         self.ask = ask
 
     def __str__(self):
         return "Type: {}, " \
-               "Ticker: {}, " \
+               "symbol: {}, " \
                "Time: {:%Y-%m-%d %H:%M:%S.%f}, " \
                "Bid: {:f}, " \
                "Ask: {:f}".format(str(self.type),
-                                  str(self.ticker),
+                                  str(self.symbol),
                                   str(self.time),
                                   str(self.bid),
-                                  str(self.ask)
-                                  )
+                                  str(self.ask))
 
     def __repr__(self):
         return str(self)
@@ -64,13 +63,13 @@ class BarEvent(Event):
     open-high-low-close-volume bar, as would be generated
     via common data providers such as Yahoo Finance.
     """
-    def __init__(self, ticker, time, period, open_price, high_price, low_price,
+    def __init__(self, symbol, time, period, open_price, high_price, low_price,
                  close_price, volume, adj_close_price=None):
         """
         Initialises the BarEvent.
 
         Parameters:
-        ticker - The ticker symbol, e.g. 'GOOG'.
+        symbol - The symbol symbol, e.g. 'GOOG'.
         time - The timestamp of the bar
         period - The time period covered by the bar in seconds
         open_price - The unadjusted opening price of the bar
@@ -86,7 +85,7 @@ class BarEvent(Event):
         word in Python.
         """
         self.type = EventType.BAR
-        self.ticker = ticker
+        self.symbol = symbol
         self.time = time
         self.period = period
         self.open_price = open_price
@@ -132,10 +131,10 @@ class BarEvent(Event):
             return "%ssec".format(self.period)
 
     def __str__(self):
-        format_str = "Type: {}, Ticker: {}, Time: {:%Y-%m-%d %H:%M:%S}, Period: {}, " \
+        format_str = "Type: {}, symbol: {}, Time: {:%Y-%m-%d %H:%M:%S}, Period: {}, " \
             "Open: {:.f}, High: {:.f}, Low: {:.f}, Close: {:.f}, " \
             "Adj Close: {:.f}, Volume: {:.n}".format(str(self.type),
-                                                     str(self.ticker),
+                                                     str(self.symbol),
                                                      str(self.time),
                                                      str(self.period_readable),
                                                      str(self.open_price),
@@ -155,12 +154,12 @@ class SignalEvent(Event):
     Handles the event of sending a Signal from a Strategy object.
     This is received by a Portfolio object and acted upon.
     """
-    def __init__(self, ticker, action, suggested_quantity=None):
+    def __init__(self, symbol, action, suggested_quantity=None):
         """
         Initialises the SignalEvent.
 
         Parameters:
-        ticker - The ticker symbol, e.g. 'GOOG'.
+        symbol - The symbol symbol, e.g. 'GOOG'.
         action - 'BOT' (for long) or 'SLD' (for short).
         suggested_quantity - Optional positively valued integer
             representing a suggested absolute quantity of units
@@ -168,7 +167,7 @@ class SignalEvent(Event):
             PositionSizer and RiskManager.
         """
         self.type = EventType.SIGNAL
-        self.ticker = ticker
+        self.symbol = symbol
         self.action = action
         self.suggested_quantity = suggested_quantity
 
@@ -176,20 +175,20 @@ class SignalEvent(Event):
 class OrderEvent(Event):
     """
     Handles the event of sending an Order to an execution system.
-    The order contains a ticker (e.g. GOOG), action (BOT or SLD)
+    The order contains a symbol (e.g. GOOG), action (BOT or SLD)
     and quantity.
     """
-    def __init__(self, ticker, action, quantity):
+    def __init__(self, symbol, action, quantity):
         """
         Initialises the OrderEvent.
 
         Parameters:
-        ticker - The ticker symbol, e.g. 'GOOG'.
+        symbol - The symbol symbol, e.g. 'GOOG'.
         action - 'BOT' (for long) or 'SLD' (for short).
         quantity - The quantity of shares to transact.
         """
         self.type = EventType.ORDER
-        self.ticker = ticker
+        self.symbol = symbol
         self.action = action
         self.quantity = quantity
 
@@ -198,8 +197,8 @@ class OrderEvent(Event):
         Outputs the values within the OrderEvent.
         """
         print(
-            "Order: Ticker=%s, Action=%s, Quantity=%s" % (
-                self.ticker, self.action, self.quantity
+            "Order: symbol=%s, Action=%s, Quantity=%s" % (
+                self.symbol, self.action, self.quantity
             )
         )
 
@@ -216,12 +215,12 @@ class FillEvent(Event):
     the cost.
     """
 
-    def __init__(self, timestamp, ticker, action, quantity, exchange, price, commission):
+    def __init__(self, timestamp, symbol, action, quantity, exchange, price, commission):
         """
         Initialises the FillEvent object.
 
         timestamp - The timestamp when the order was filled.
-        ticker - The ticker symbol, e.g. 'GOOG'.
+        symbol - The symbol symbol, e.g. 'GOOG'.
         action - 'BOT' (for long) or 'SLD' (for short).
         quantity - The filled quantity.
         exchange - The exchange where the order was filled.
@@ -230,7 +229,7 @@ class FillEvent(Event):
         """
         self.type = EventType.FILL
         self.timestamp = timestamp
-        self.ticker = ticker
+        self.symbol = symbol
         self.action = action
         self.quantity = quantity
         self.exchange = exchange
@@ -241,20 +240,20 @@ class FillEvent(Event):
 class SentimentEvent(Event):
     """
     Handles the event of streaming a "Sentiment" value associated
-    with a ticker. Can be used for a generic "date-ticker-sentiment"
+    with a symbol. Can be used for a generic "date-symbol-sentiment"
     service, often provided by many data vendors.
     """
-    def __init__(self, timestamp, ticker, sentiment):
+    def __init__(self, timestamp, symbol, sentiment):
         """
         Initialises the SentimentEvent.
 
         Parameters:
         timestamp - The timestamp when the sentiment was generated.
-        ticker - The ticker symbol, e.g. 'GOOG'.
+        symbol - The symbol symbol, e.g. 'GOOG'.
         sentiment - A string, float or integer value of "sentiment",
             e.g. "bullish", -1, 5.4, etc.
         """
         self.type = EventType.SENTIMENT
         self.timestamp = timestamp
-        self.ticker = ticker
+        self.symbol = symbol
         self.sentiment = sentiment
