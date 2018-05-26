@@ -48,9 +48,7 @@ if __name__ == '__main__':
 
     ticks = HistoricFxTickPriceHandler(symbols, provider, s_date, e_date)
 
+    for num, tick in enumerate(ticks.get_new_tick()):
+        print('{}: {}'.format(num, tick))
 
-    c = 0
-    for t in ticks.get_new_tick():
-        print('{}: {}'.format(c, t))
-        c += 1
 

@@ -36,6 +36,7 @@ def series_by_filename(tag, dir_path):
         logger.exception('Could not query series in table')
         raise SystemError
 
+    # https://stackoverflow.com/a/39537308/3512107
     ans = OrderedDict()
     for r in response:
         filename = r['value']
@@ -61,7 +62,8 @@ def series_in_table(table, dir_path):
         logger.exception('Could not query series in table')
         raise SystemError
 
-    ans = dict()
+    # https://stackoverflow.com/a/39537308/3512107
+    ans = OrderedDict()
     for v in response:
         filename = v[0][1][0][1]
         row_count = v[1]['count'].iloc[0]
@@ -205,7 +207,7 @@ def delete_series(tags):
         logger.exception('Could not delete series {}'.format(tags['filename']))
 
 
-def get_files_to_load(table, dir_path, overwrite):
+def get_files_to_load(dir_path, overwrite):
 
     # Define the set of files to work with
     dir_path = pathlib.Path(dir_path)
@@ -221,12 +223,12 @@ def get_files_to_load(table, dir_path, overwrite):
         # the loading function was stopped then the last series could be incomplete.
         last_insert = list(already_in_db.keys())[-1]
         delete_series(tags={'filename': last_insert})
-
+        # TODO: SE DEBE AGREGAR LA SERIE ELIMINADA COMO PRIMERA A SER BAJADA.
         logger.info('{} files already loaded into database'.format(len(already_in_db)))
         for _k, v in already_in_db.items():
             filepath = pathlib.Path(v)
-            if filepath in all_possible_files:
-                all_possible_files.remove(filepath)
+            if not filepath == last_insert and filepath in all_possible_files:
+                    all_possible_files.remove(filepath)
         files = all_possible_files
 
     logger.info('{} files for insert'.format(len(all_possible_files)))
@@ -240,12 +242,11 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
 
     """
 
-    files = get_files_to_load(table=into_table, dir_path=dir_path, overwrite=overwrite)
+    files = get_files_to_load(dir_path=dir_path, overwrite=overwrite)
 
     # Loop each file in directory
     for each_file in files:
         # Get some basic information about the data
-        #
         symbol = each_file.parts[-1][:6]
         filename = each_file.parts[-1][:-7]
         tags = {'symbol': symbol, 'provider': provider, 'filename': filename}
@@ -299,14 +300,14 @@ def multiple_file_insert():
     t1 = datetime.datetime.now()
     logger.info('TOTAL RUNNING TIME WAS: {}'.format(t1 - t0))
 
-
+#TODO: falta este archivo GBPUSD_2016_23 y corregir
 def insert_one_series():
-    tags = {'filename': 'AUDNZD_2016_40',
+    tags = {'filename': 'GBPUSD_2016_23',
             'provider': 'fxcm',
-            'symbol': 'AUDCAD'}
+            'symbol': 'GBPUSD'}
 
     filepath = pathlib.Path(
-        '/media/javier/My Passport/Trading/data/clean_fxcm/LOADED/AUDNZD/2016/AUDNZD_2016_40.csv.gz')
+        '/media/javier/My Passport/Trading/data/clean_fxcm/LOADED/GBPUSD/2016/GBPUSD_2016_23.csv.gz')
 
     # deletes series with same tags if already in database
     delete_series(tags=tags)
@@ -321,5 +322,7 @@ if __name__ == '__main__':
     logger = logging.getLogger('FXCM LOADING INTO DATABASE')
     multiple_file_insert()
 
-    # insert_one_series()
+
+
+
 
