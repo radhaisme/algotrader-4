@@ -7,8 +7,7 @@ import pathlib
 # ALL CONFIG SELECTIONS FROM HERE
 ###############################################################
 
-# CONFIG = pathlib.Path(os.environ['TRADE_CONF'])
-CONFIG = pathlib.Path("/home/javier/Dropbox/trading/trading.conf")
+CONFIG = pathlib.Path(os.environ['TRADE_CONF'])
 
 
 def oanda_connection_type():
