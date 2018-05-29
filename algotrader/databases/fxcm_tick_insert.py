@@ -212,7 +212,7 @@ def delete_series(tags):
         logger.exception('Could not delete series {}'.format(tags['filename']))
 
 
-def get_files_to_load(dir_path, overwrite):
+def get_files_to_load(dir_path, overwrite, validation_type='fast'):
 
     # Define the set of files to work with
     dir_path = pathlib.Path(dir_path)
@@ -222,8 +222,15 @@ def get_files_to_load(dir_path, overwrite):
     if overwrite:
         files = all_possible_files
     else:
-        logger.info('Verification what is already in database. Be patient. !!!')
-        already_in_db = series_by_filename(tag='filename', dir_path=dir_path)
+        if validation_type == 'fast':
+            # validates that series by tag value = filename
+            already_in_db = series_by_filename(tag='filename', dir_path=dir_path)
+        elif validation_type == 'full':
+            logger.info('Verification what is already in database. Be patient. !!!')
+            # TODO: row_count by file validation. CSV vs DB
+
+
+
         # Deletes last inserted series. this is done for safety, because if last time
         # the loading function was stopped then the last series could be incomplete.
         if len(already_in_db) > 0:
