@@ -30,11 +30,16 @@ def series_by_filename(tag, dir_path):
     cql = 'SHOW TAG VALUES ON \"{}\" WITH KEY=\"{}\"'.format(database, tag)
     try:
         client = influx_client(client_type='client', user_type='reader')
-        response = client.query(cql).items()[0][1]
+        cql_response = client.query(cql).items()
         client.close()
     except InfluxDBClientError:
         logger.exception('Could not query series in table')
         raise SystemError
+
+    if cql_response:
+        response = cql_response[0][1]
+    else:
+        response = cql_response
 
     # https://stackoverflow.com/a/39537308/3512107
     ans = OrderedDict()
@@ -221,9 +226,11 @@ def get_files_to_load(dir_path, overwrite):
         already_in_db = series_by_filename(tag='filename', dir_path=dir_path)
         # Deletes last inserted series. this is done for safety, because if last time
         # the loading function was stopped then the last series could be incomplete.
-        last_insert = list(already_in_db.keys())[-1]
-        delete_series(tags={'filename': last_insert})
-        # TODO: SE DEBE AGREGAR LA SERIE ELIMINADA COMO PRIMERA A SER BAJADA.
+        if len(already_in_db) > 0:
+            last_insert = list(already_in_db.keys())[-1]
+            delete_series(tags={'filename': last_insert})
+            del already_in_db[last_insert]
+
         logger.info('{} files already loaded into database'.format(len(already_in_db)))
         for _k, v in already_in_db.items():
             filepath = pathlib.Path(v)
@@ -296,11 +303,11 @@ def multiple_file_insert():
     logger.info('########################### START LOADING MULTIPLE TICK FILES ############################')
     logger.info('#' * 90)
 
-    load_multiple_tick_files(dir_path=store, provider='fxcm', into_table='fx_ticks')
+    load_multiple_tick_files(dir_path=store, provider='fxcm', into_table='fx_ticks', overwrite=False)
     t1 = datetime.datetime.now()
     logger.info('TOTAL RUNNING TIME WAS: {}'.format(t1 - t0))
 
-#TODO: falta este archivo GBPUSD_2016_23 y corregir
+
 def insert_one_series():
     tags = {'filename': 'GBPUSD_2016_23',
             'provider': 'fxcm',
