@@ -1,5 +1,5 @@
 """
-This module import tick data provided for FXMC
+This module import tick data provided for FXCM
 check: https://github.com/FXCMAPI/FXCMTickData
 """
 import gzip
@@ -165,21 +165,21 @@ def get_files(urls):
     logger.info('All files processed')
 
 
-def clean_fxcm_originals():
+def clean_fxcm_originals(original_dirpath, clean_dirpath):
     """
-    FXMC file come with invalid characters '\x00' that you must clean first
+    FXCM file come with invalid characters '\x00' that you must clean first
     https://goo.gl/1zoTST
 
     Returns: clean csv.gz file
 
     """
     # Get the file list of the original downloads
-    orig_dir_path = pathlib.Path(store_originals_fxcm())
+    orig_dir_path = pathlib.Path(original_dirpath)
     original_files = list(orig_dir_path.glob('**/*.gz'))
     total_original_files = len(original_files)
 
     # Get the file list of the clean files, if any.
-    clean_dir_path = pathlib.Path(store_clean_fxcm())
+    clean_dir_path = pathlib.Path(clean_dirpath)
     clean_files = list(clean_dir_path.glob('**/*.gz'))
 
     counter = 0
@@ -214,16 +214,26 @@ def clean_fxcm_originals():
             logger.info('File {} already in store'.format(clean_file_path))
 
 
-def main():
-    urls = definitive_urls(overwrite=False, end_date='2018-04-30')
+def update_all(final_date):
+    """Main update function for FXCM files
+    Download and clean files from server and save then in the appropriate location.
+
+    Run from 2001-01-01 as provided by fxcm
+
+    :param final_date: date to run to
+    :return: updated original and clean directories.
+    """
+    urls = definitive_urls(overwrite=False, end_date=final_date)
     get_files(urls)
-    clean_fxcm_originals()
+    clean_fxcm_originals(store_originals_fxcm())
 
 
 if __name__ == '__main__':
     setup_logging()
-    logger = logging.getLogger('fxcm')
-    main()
+    logger = logging.getLogger('fxcm download')
+
+    my_date = '2018-04-30'
+    update_all(my_date)
 
 
 
