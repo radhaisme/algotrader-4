@@ -93,22 +93,17 @@ class HistoricFxTickPriceHandler:
         """Obtain all elements of the tick from the tick dictionary
         and returns a tick event
         """
-        bid = PriceParser.parse(tick["bid"])
-        ask = PriceParser.parse(tick["ask"])
-        symbol = tick["Symbol"]
-        index = tick['time']
-        provider = tick['provider']
-        ans = TickEvent(symbol, index, bid, ask, provider)
-        return ans
 
-    def _store_event(self, event):
-        """Store price event for bid/ask
-        """
-        symbol = event.ticker
-        self.symbol[symbol]["bid"] = event.bid
-        self.symbol[symbol]["ask"] = event.ask
-        self.symbol[symbol]["time"] = event.time
-        self.symbol[symbol]["provider"] = event.provider
+        return TickEvent(tick)
+
+    # def _store_event(self, event):
+    #     """Store price event for bid/ask
+    #     """
+    #     symbol = event.symbol
+    #     self.symbol[symbol]["time"] = event.time
+    #     self.symbol[symbol]["bid"] = event.bid
+    #     self.symbol[symbol]["ask"] = event.ask
+    #     self.symbol[symbol]["provider"] = event.provider
 
     def stream_next(self):
         """
@@ -121,11 +116,9 @@ class HistoricFxTickPriceHandler:
             return
 
         tick_ev = self._create_event(tick)
-
-        self._store_event(tick_ev)
-
+        # TODO: Store event
+        # self._store_event(tick_ev)
         self.events_queue.put(tick_ev)
-
 
 
 class HistoricBarPriceHandler:
