@@ -22,7 +22,6 @@ class ATSett:
                          'file' string pointing to conf file
         """
         self.get_from = get_from
-        logging.info('Loading system settings for AlgoTrader')
         self.stream = self._stream()
 
     # Internal functions

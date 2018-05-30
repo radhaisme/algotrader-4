@@ -7,7 +7,7 @@ import sys
 
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
-from influxdb.exceptions import *
+from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
 from common.settings import ATSett
 from log.logging import setup_logging
@@ -33,10 +33,9 @@ def influx_client(client_type='client', user_type='reader'):
     try:
         if client_type == 'client':
             client = InfluxDBClient(host, port, user, password, dbname)
-            return client
         elif client_type == 'dataframe':
             client = DataFrameClient(host, port, user, password, dbname)
-            return client
+        return client
     except (InfluxDBServerError, InfluxDBClientError, KeyError):
         logging.exception('Can not connect to database Influxdb.')
         raise SystemError
@@ -52,12 +51,12 @@ def available_series(measurement):
     cql = "SELECT count(*) FROM \"{}\" " \
           "GROUP BY filename LIMIT 1".format(measurement)
     try:
-        c = influx_client(client_type='dataframe', user_type='reader')
-        ans = c.query(query=cql)[measurement]
+        client = influx_client(client_type='dataframe', user_type='reader')
+        ans = client.query(query=cql)[measurement]
         return [(x[0].get('symbol'),
                  x[0].get('filename'),
                  x[0].get('provider')) for x in ans]
-    except (InfluxDBClientError, InfluxDBClient):
+    except (InfluxDBClientError, InfluxDBServerError):
         logging.exception('Can not obtain series info.')
         sys.exit(-1)
 
@@ -69,10 +68,10 @@ def db_server_info():
 
     client = influx_client(user_type='admin')
 
-    dbs = client.get_list_database()
-    usr = client.get_list_users()
-    msr = client.get_list_measurements()
-    ret = client.get_list_retention_policies()
+    databases_lst = client.get_list_database()
+    users_lst = client.get_list_users()
+    table_lst = client.get_list_measurements()
+    policy_lst = client.get_list_retention_policies()
 
     print('###########################################')
     print('#                                         #')
@@ -81,23 +80,23 @@ def db_server_info():
     print('###########################################')
     print('\n')
     print('################ DATABASES ################\n')
-    for db in dbs:
-        db_ret = client.get_list_retention_policies(db['name'])
+    for database in databases_lst:
+        db_ret = client.get_list_retention_policies(database['name'])
         print('Database: \"{}\" '
-              'with policy: \"{}\"'.format(db['name'],
+              'with policy: \"{}\"'.format(database['name'],
                                            db_ret[0]['name']))
 
     print('\n################   USERS   ################\n')
-    for us in usr:
+    for each_user in users_lst:
         print('User \"{}\" '
-              'is admin: \"{}\"'.format(us['user'],
-                                        us['admin']))
+              'is admin: \"{}\"'.format(each_user['user'],
+                                        each_user['admin']))
     print('\n########### RETENTION POLICIES ############\n')
-    for r in ret:
-        print(r)
+    for each_policy in policy_lst:
+        print(each_policy)
     print('\n############## MEASUREMENTS ###############\n')
-    for m in msr:
-        print(m)
+    for each_table in table_lst:
+        print(each_table)
 
     client.close()
 
@@ -118,7 +117,7 @@ def series_info_count(measurement, series):
                                    series[1])
 
     try:
-        logging.info("Querying {} at {}".format(series, measurement))
+        logging.info("Querying %s at %s", series, measurement)
         client = influx_client(user_type='reader')
         response = client.query(query=cql)
         client.close()
@@ -135,7 +134,7 @@ if __name__ == '__main__':
     setup_logging()
     logger = logging.getLogger(__name__)
     # db_server_info()
-    series = available_series('fx_ticks')
+    my_series = available_series('fx_ticks')
 
-    for s in series:
+    for s in my_series:
         print(s)
