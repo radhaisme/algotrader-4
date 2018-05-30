@@ -4,7 +4,6 @@ import numpy as np
 
 int_t = (int, np.int64)
 
-
 class PriceParser(object):
     """
     Taken form QS Trader: https://github.com/mhallsmoore/qstrader
@@ -20,7 +19,6 @@ class PriceParser(object):
     the system. Numbers should also always be parsed correctly to view.
 
     """
-
     # 10,000,000
     PRICE_MULTIPLIER = 10000000
 
