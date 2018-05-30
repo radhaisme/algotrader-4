@@ -26,7 +26,7 @@ class TickEvent(Event):
     which is defined as a symbol symbol and associated best
     bid and ask from the top of the order book.
     """
-    def __init__(self, symbol, time, bid, ask):
+    def __init__(self, symbol, time, bid, ask, provider):
         """
         Initialises the TickEvent.
 
@@ -39,6 +39,7 @@ class TickEvent(Event):
         self.type = EventType.TICK
         self.symbol = symbol
         self.time = time
+        self.provider = provider
         self.bid = bid
         self.ask = ask
 

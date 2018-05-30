@@ -1,8 +1,10 @@
-import datetime
+#
 import logging
 from common.utilities import iter_islast
 from databases.influx_manager import influx_client
 from influxdb.exceptions import *
+from events import TickEvent
+from price_parser import PriceParser
 
 
 class HistoricFxTickPriceHandler:
@@ -15,16 +17,21 @@ class HistoricFxTickPriceHandler:
     Works with FX symbols.
     """
 
-    def __init__(self, symbols_list, data_provider, start_time, end_time):
+    def __init__(self, symbols_list, data_provider, start_time, end_time, events_queue):
 
         self.symbols_list = symbols_list
         self.data_provider = data_provider
         self.start_time = start_time
         self.end_time = end_time
-        self._tick_data = None
+        self.continue_backtest = True
+        self.events_queue = events_queue
+        self._sec_master_data = None
         self._tick_table = 'fx_ticks'
+        self.symbol = {}
 
         self. _database_query(self.symbols_list, self.start_time, self.end_time)
+
+        self.tick_stream = self._get_streaming_ticks()
 
     @staticmethod
     def is_tick():
@@ -33,9 +40,6 @@ class HistoricFxTickPriceHandler:
     @staticmethod
     def is_bar():
         return False
-
-    def _symbol_validation(self):
-        pass
 
     def _query_constructor(self, symbols_list, s_time, e_time):
         """
@@ -74,17 +78,54 @@ class HistoricFxTickPriceHandler:
         try:
             client = influx_client(client_type='client', user_type='reader')
             final_statement = self._query_constructor(symbols_list, s_time, e_time)
-            self._tick_data = client.query(query=final_statement, chunked=True, chunk_size=1000)
+            self._sec_master_data = client.query(query=final_statement, chunked=True, chunk_size=1000)
             client.close()
         except (InfluxDBClientError, InfluxDBServerError):
             logging.exception('Can not query securities master.')
             raise SystemError
 
-    def get_new_tick(self):
+    def _get_streaming_ticks(self):
+        """Generator that returns the latest tick from the data feed.
         """
-        Generator that returns the latest tick from the data feed.
+        return self._sec_master_data.get_points()
+
+    def _create_event(self, tick):
+        """Obtain all elements of the tick from the tick dictionary
+        and returns a tick event
         """
-        return self._tick_data.get_points()
+        bid = PriceParser.parse(tick["bid"])
+        ask = PriceParser.parse(tick["ask"])
+        symbol = tick["Symbol"]
+        index = tick['time']
+        provider = tick['provider']
+        ans = TickEvent(symbol, index, bid, ask, provider)
+        return ans
+
+    def _store_event(self, event):
+        """Store price event for bid/ask
+        """
+        symbol = event.ticker
+        self.symbol[symbol]["bid"] = event.bid
+        self.symbol[symbol]["ask"] = event.ask
+        self.symbol[symbol]["time"] = event.time
+        self.symbol[symbol]["provider"] = event.provider
+
+    def stream_next(self):
+        """
+        Place the next TickEvent onto the event queue.
+        """
+        try:
+            tick = next(self.tick_stream)
+        except StopIteration:
+            self.continue_backtest = False
+            return
+
+        tick_ev = self._create_event(tick)
+
+        self._store_event(tick_ev)
+
+        self.events_queue.put(tick_ev)
+
 
 
 class HistoricBarPriceHandler:
@@ -96,7 +137,7 @@ class HistoricBarPriceHandler:
 
     """
 
-    def __init__(self, symbols_list, timeframe, data_provider, start_time, end_time):
+    def __init__(self, symbols_list, timeframe, data_provider, start_time, end_time, events_queue):
         self.db_client = influx_client()
         self.symbols_list = symbols_list
         self.timeframe = timeframe
