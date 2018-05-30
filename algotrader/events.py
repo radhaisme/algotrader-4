@@ -4,7 +4,7 @@
 """
 
 from enum import Enum
-
+from price_parser import PriceParser
 
 EventType = Enum("EventType", "TICK BAR SIGNAL ORDER FILL SENTIMENT")
 
@@ -15,6 +15,7 @@ class Event(object):
     (inherited) events, that will trigger further events in the
     trading infrastructure.
     """
+
     @property
     def typename(self):
         return self.type.name
@@ -26,33 +27,32 @@ class TickEvent(Event):
     which is defined as a symbol symbol and associated best
     bid and ask from the top of the order book.
     """
-    def __init__(self, symbol, time, bid, ask, provider):
-        """
-        Initialises the TickEvent.
 
-        Parameters:
-        symbol - The symbol symbol, e.g. 'GOOG' / 'EURUSD'.
-        time - The timestamp of the tick
-        bid - The best bid price at the time of the tick.
-        ask - The best ask price at the time of the tick.
+    def __init__(self, tick):
+        """Initialises the TickEvent.
+
+        :param tick: tick dictionary with time, symbol, bid, ask, provider data
         """
+
         self.type = EventType.TICK
-        self.symbol = symbol
-        self.time = time
-        self.provider = provider
-        self.bid = bid
-        self.ask = ask
+        self.symbol = tick['symbol']
+        self.provider = tick['provider']
+        self.time = tick['time']
+        self.bid = PriceParser.parse(tick['bid'])
+        self.ask = PriceParser.parse(tick['ask'])
 
     def __str__(self):
         return "Type: {}, " \
-               "symbol: {}, " \
-               "Time: {:%Y-%m-%d %H:%M:%S.%f}, " \
+               "Symbol: {}, " \
+               "Time: {}, " \
                "Bid: {:f}, " \
-               "Ask: {:f}".format(str(self.type),
-                                  str(self.symbol),
-                                  str(self.time),
-                                  str(self.bid),
-                                  str(self.ask))
+               "Ask: {:f}, " \
+               "Provider: {}".format(self.type,
+                                     self.symbol,
+                                     self.time,
+                                     self.bid,
+                                     self.ask,
+                                     self.provider)
 
     def __repr__(self):
         return str(self)
@@ -64,6 +64,7 @@ class BarEvent(Event):
     open-high-low-close-volume bar, as would be generated
     via common data providers such as Yahoo Finance.
     """
+
     def __init__(self, symbol, time, period, open_price, high_price, low_price,
                  close_price, volume, adj_close_price=None):
         """
@@ -133,17 +134,17 @@ class BarEvent(Event):
 
     def __str__(self):
         format_str = "Type: {}, symbol: {}, Time: {:%Y-%m-%d %H:%M:%S}, Period: {}, " \
-            "Open: {:.f}, High: {:.f}, Low: {:.f}, Close: {:.f}, " \
-            "Adj Close: {:.f}, Volume: {:.n}".format(str(self.type),
-                                                     str(self.symbol),
-                                                     str(self.time),
-                                                     str(self.period_readable),
-                                                     str(self.open_price),
-                                                     str(self.high_price),
-                                                     str(self.low_price),
-                                                     str(self.close_price),
-                                                     str(self.adj_close_price),
-                                                     str(self.volume))
+                     "Open: {:.f}, High: {:.f}, Low: {:.f}, Close: {:.f}, " \
+                     "Adj Close: {:.f}, Volume: {:.n}".format(str(self.type),
+                                                              str(self.symbol),
+                                                              str(self.time),
+                                                              str(self.period_readable),
+                                                              str(self.open_price),
+                                                              str(self.high_price),
+                                                              str(self.low_price),
+                                                              str(self.close_price),
+                                                              str(self.adj_close_price),
+                                                              str(self.volume))
         return format_str
 
     def __repr__(self):
@@ -155,6 +156,7 @@ class SignalEvent(Event):
     Handles the event of sending a Signal from a Strategy object.
     This is received by a Portfolio object and acted upon.
     """
+
     def __init__(self, symbol, action, suggested_quantity=None):
         """
         Initialises the SignalEvent.
@@ -179,6 +181,7 @@ class OrderEvent(Event):
     The order contains a symbol (e.g. GOOG), action (BOT or SLD)
     and quantity.
     """
+
     def __init__(self, symbol, action, quantity):
         """
         Initialises the OrderEvent.
@@ -244,6 +247,7 @@ class SentimentEvent(Event):
     with a symbol. Can be used for a generic "date-symbol-sentiment"
     service, often provided by many data vendors.
     """
+
     def __init__(self, timestamp, symbol, sentiment):
         """
         Initialises the SentimentEvent.
