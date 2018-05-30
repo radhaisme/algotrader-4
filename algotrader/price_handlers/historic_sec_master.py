@@ -4,12 +4,10 @@ from common.utilities import iter_islast
 from databases.influx_manager import influx_client
 from influxdb.exceptions import *
 from events import TickEvent
-from price_parser import PriceParser
 
 
 class HistoricFxTickPriceHandler:
-    """
-    HistoricFxTickPriceHandler is designed to read the Securities Master Database
+    """HistoricFxTickPriceHandler is designed to read the Securities Master Database
     running on Influxdb and query for each requested symbol and time,
     providing an interface to obtain the "latest" tick in a manner identical to a live
     trading interface.
@@ -42,8 +40,7 @@ class HistoricFxTickPriceHandler:
         return False
 
     def _query_constructor(self, symbols_list, s_time, e_time):
-        """
-        CQL statement constructor for multiple symbols
+        """CQL statement constructor for multiple symbols
         """
         all_symbols = ''
         for each_symbol, islast in iter_islast(symbols_list):
@@ -65,15 +62,13 @@ class HistoricFxTickPriceHandler:
         return final_statement + " AND (" + all_symbols + ")"
 
     def _database_query(self, symbols_list, s_time, e_time):
-        """
-        Get tick data for a selected symbol over a period of time
-        Args:
-            symbols_list: the symbols to query about
-            s_time: start datetime object/string
-            e_time: end datetime object/string
+        """Get tick data for a selected symbol over a period of time
 
-        Returns: Influx ResultSet
+        :param symbols_list: the symbols to query about
+        :param s_time: start datetime object/string
+        :param e_time: end datetime object/string
 
+        :return Influx ResultSet
         """
         try:
             client = influx_client(client_type='client', user_type='reader')
@@ -89,11 +84,11 @@ class HistoricFxTickPriceHandler:
         """
         return self._sec_master_data.get_points()
 
-    def _create_event(self, tick):
+    @staticmethod
+    def _create_event(tick):
         """Obtain all elements of the tick from the tick dictionary
         and returns a tick event
         """
-
         return TickEvent(tick)
 
     # def _store_event(self, event):
@@ -106,12 +101,12 @@ class HistoricFxTickPriceHandler:
     #     self.symbol[symbol]["provider"] = event.provider
 
     def stream_next(self):
-        """
-        Place the next TickEvent onto the event queue.
+        """Place the next TickEvent onto the event queue.
         """
         try:
             tick = next(self.tick_stream)
         except StopIteration:
+
             self.continue_backtest = False
             return
 

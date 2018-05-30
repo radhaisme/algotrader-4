@@ -9,8 +9,9 @@ import logging
 import logging.config
 import pathlib
 import yaml
+from common.settings import ATSett
 
-from common.config import log_configuration, log_saving_path
+setts = ATSett()
 
 
 def setup_logging(default_level=logging.INFO):
@@ -19,8 +20,8 @@ def setup_logging(default_level=logging.INFO):
     :param default_level:
     :return:
     """
-    path = pathlib.Path(log_configuration())
 
+    path = pathlib.Path(setts.log_configuration())
     if path.is_file():
         # Saving path update
         update_conf_file()
@@ -35,8 +36,8 @@ def setup_logging(default_level=logging.INFO):
 def update_conf_file():
     """Update the logging configuration file with the paths defined in the CONFIG file
     """
-    saving_path = pathlib.Path(log_saving_path())
-    config_file = pathlib.Path(log_configuration())
+    saving_path = pathlib.Path(setts.log_saving_path())
+    config_file = pathlib.Path(setts.log_configuration())
 
     with open(config_file) as f:
         doc = yaml.load(f)

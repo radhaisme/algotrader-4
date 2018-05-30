@@ -10,8 +10,7 @@ import requests
 import logging
 import re
 from time import sleep
-
-from common.config import fxcm_data_path, store_originals_fxcm, store_clean_fxcm
+from common.settings import ATSett
 from log.logging import setup_logging
 
 # Available symbols from FXCM server.
@@ -19,6 +18,8 @@ SYMBOLS = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
            'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
            'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
            'USDCAD', 'USDCHF', 'USDJPY']
+
+setts = ATSett()
 
 
 def in_store(store_path):
@@ -46,8 +47,8 @@ def all_possible_urls(end_date):
     :return:
     """
     # This is the base url and the file extension
-    url = fxcm_data_path()
-    store_path = pathlib.Path(store_originals_fxcm())
+    url = setts.fxcm_data_path()
+    store_path = pathlib.Path(setts.store_originals_fxcm())
     url_suffix = '.csv.gz'
 
     # Set the dates
@@ -108,7 +109,7 @@ def definitive_urls(overwrite, end_date):
 
     if not overwrite:
         # What files are already in store
-        already_in_store = in_store(store_originals_fxcm())
+        already_in_store = in_store(setts.store_originals_fxcm())
 
         for filepath in already_in_store:
             filename = filepath.parts[-1]
@@ -223,9 +224,14 @@ def update_all(final_date):
     :param final_date: date to run to
     :return: updated original and clean directories.
     """
-    urls = definitive_urls(overwrite=False, end_date=final_date)
+    urls = definitive_urls(overwrite=False,
+                           end_date=final_date
+                           )
     get_files(urls)
-    clean_fxcm_originals(store_originals_fxcm())
+
+    clean_fxcm_originals(original_dirpath=setts.store_originals_fxcm(),
+                         clean_dirpath=setts.store_originals_fxcm()
+                         )
 
 
 if __name__ == '__main__':

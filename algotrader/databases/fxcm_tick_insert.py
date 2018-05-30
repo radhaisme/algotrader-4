@@ -15,7 +15,7 @@ from pytz import utc
 from data_acquisition.fxmc import in_store
 from databases.influx_manager import influx_client
 from log.logging import setup_logging
-from common.config import store_clean_fxcm
+from common.settings import ATSett
 
 
 def series_by_filename(tag, dir_path):
@@ -229,8 +229,6 @@ def get_files_to_load(dir_path, overwrite, validation_type='fast'):
             logger.info('Verification what is already in database. Be patient. !!!')
             # TODO: row_count by file validation. CSV vs DB
 
-
-
         # Deletes last inserted series. this is done for safety, because if last time
         # the loading function was stopped then the last series could be incomplete.
         if len(already_in_db) > 0:
@@ -302,7 +300,7 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
 
 def multiple_file_insert():
 
-    store = pathlib.Path(store_clean_fxcm())
+    store = pathlib.Path(ATSett().store_clean_fxcm())
 
     t0 = datetime.datetime.now()
 
@@ -333,7 +331,7 @@ def insert_one_series():
 
 if __name__ == '__main__':
     setup_logging()
-    logger = logging.getLogger('FXCM LOADING INTO DATABASE')
+    logger = logging.getLogger('Fxcm data insert')
     multiple_file_insert()
 
 

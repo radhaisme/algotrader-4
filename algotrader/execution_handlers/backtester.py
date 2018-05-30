@@ -38,13 +38,15 @@ class Backtester:
             # self.data_handler = HistoricBarPriceHandler(data_provider=self.provider, symbols_list=self.symbol_list,
             #                                             start_time=self.start_time, end_time=self.end_time,
             #                                             events_queue=self.events_queue, frequency=self.frequency)
+        logger.info('DataHandler ready. {}'.format(self.data_handler))
+
 
     def run_the_queue(self):
 
         while True:
             self.data_handler.stream_next()
             event = self.events_queue.get()
-            print(event)
+
 
 
 
