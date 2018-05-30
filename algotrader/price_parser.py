@@ -4,6 +4,7 @@ import numpy as np
 
 int_t = (int, np.int64)
 
+
 class PriceParser(object):
     """
     Taken form QS Trader: https://github.com/mhallsmoore/qstrader
@@ -26,37 +27,37 @@ class PriceParser(object):
 
     @staticmethod
     @dispatch(int_t)
-    def parse(x):  # flake8: noqa
+    def parse(x):
         return x
 
     @staticmethod
     @dispatch(str)
-    def parse(x):  # flake8: noqa
+    def parse(x):
         return int(float(x) * PriceParser.PRICE_MULTIPLIER)
 
     @staticmethod
     @dispatch(float)
-    def parse(x):  # flake8: noqa
+    def parse(x):
         return int(x * PriceParser.PRICE_MULTIPLIER)
 
     """Display Methods. Multiplies a float out into an int if needed."""
 
     @staticmethod
     @dispatch(int_t)
-    def display(x):  # flake8: noqa
+    def display(x):
         return round(x / PriceParser.PRICE_MULTIPLIER, 2)
 
     @staticmethod
     @dispatch(float)
-    def display(x):  # flake8: noqa
+    def display(x):
         return round(x, 2)
 
     @staticmethod
     @dispatch(int_t, int)
-    def display(x, dp):  # flake8: noqa
+    def display(x, dp):
         return round(x / PriceParser.PRICE_MULTIPLIER, dp)
 
     @staticmethod
     @dispatch(float, int)
-    def display(x, dp):  # flake8: noqa
+    def display(x, dp):
         return round(x, dp)

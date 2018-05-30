@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-
+"""
+Manage the connections to Influx Server
+"""
 import logging
 import sys
-from builtins import SystemError
 
-from log.logging import setup_logging
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 from influxdb.exceptions import *
 
 from common.settings import ATSett
+from log.logging import setup_logging
 
 
 def influx_client(client_type='client', user_type='reader'):
@@ -42,7 +43,8 @@ def influx_client(client_type='client', user_type='reader'):
 
 
 def available_series(measurement):
-    """Return list of tuples (symbol, provider) with available series in a measurement
+    """Return list of tuples (symbol, provider) with available
+     series in a measurement
 
     :param measurement:
     :return:
@@ -52,7 +54,9 @@ def available_series(measurement):
     try:
         c = influx_client(client_type='dataframe', user_type='reader')
         ans = c.query(query=cql)[measurement]
-        return [(x[0].get('symbol'), x[0].get('filename'), x[0].get('provider')) for x in ans]
+        return [(x[0].get('symbol'),
+                 x[0].get('filename'),
+                 x[0].get('provider')) for x in ans]
     except (InfluxDBClientError, InfluxDBClient):
         logging.exception('Can not obtain series info.')
         sys.exit(-1)
@@ -79,11 +83,15 @@ def db_server_info():
     print('################ DATABASES ################\n')
     for db in dbs:
         db_ret = client.get_list_retention_policies(db['name'])
-        print('Database: \"{}\" with policy: \"{}\"'.format(db['name'], db_ret[0]['name']))
+        print('Database: \"{}\" '
+              'with policy: \"{}\"'.format(db['name'],
+                                           db_ret[0]['name']))
 
     print('\n################   USERS   ################\n')
     for us in usr:
-        print('User \"{}\" is admin: \"{}\"'.format(us['user'], us['admin']))
+        print('User \"{}\" '
+              'is admin: \"{}\"'.format(us['user'],
+                                        us['admin']))
     print('\n########### RETENTION POLICIES ############\n')
     for r in ret:
         print(r)
@@ -105,7 +113,9 @@ def series_info_count(measurement, series):
     cql = "SELECT COUNT(*) " \
           "FROM \"{}\" " \
           "WHERE symbol=\'{}\' AND " \
-          "provider=\'{}\'".format(measurement, series[0], series[1])
+          "provider=\'{}\'".format(measurement,
+                                   series[0],
+                                   series[1])
 
     try:
         logging.info("Querying {} at {}".format(series, measurement))
@@ -118,7 +128,6 @@ def series_info_count(measurement, series):
 
     datapoint = next(response.get_points())
     del datapoint['time']
-
     return datapoint
 
 

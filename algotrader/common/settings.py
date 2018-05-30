@@ -79,4 +79,6 @@ class ATSett:
         return self.stream['logging']['saving_path']
 
 
-
+class StratSett:
+    def __init__(self):
+        raise NotImplementedError

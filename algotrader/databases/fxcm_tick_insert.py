@@ -3,19 +3,26 @@
 # https://www.influxdata.com/blog/influxdb-vs-cassandra-time-series/
 # Something to read when working with a lot of data
 # https://www.dataquest.io/blog/pandas-big-data/
-import pandas as pd
+"""
+Module
+
+"""
+
 import datetime
 import logging
 import pathlib
 import sys
 from collections import OrderedDict
 from gzip import open
+
+import pandas as pd
 from influxdb.exceptions import *
 from pytz import utc
+
+from common.settings import ATSett
 from data_acquisition.fxmc import in_store
 from databases.influx_manager import influx_client
 from log.logging import setup_logging
-from common.settings import ATSett
 
 
 def series_by_filename(tag, dir_path):
@@ -72,14 +79,16 @@ def series_in_table(table, dir_path):
     for v in response:
         filename = v[0][1][0][1]
         row_count = v[1]['count'].iloc[0]
-        store_path = store_path_constructor(filename=filename, dir_path=dir_path)
+        store_path = store_path_constructor(filename=filename,
+                                            dir_path=dir_path)
         ans[filename] = {'row_count': row_count,
                          'filepath': store_path}
     return ans
 
 
 def store_path_constructor(filename, dir_path):
-    """Construct a filepath object for fxcm file store in the designated clean store
+    """Construct a filepath object for fxcm file store
+    in the designated clean store
 
     :param filename: regex "^[A-Z]{6}_20\d{1,2}_\d{1,2}" ex: "AUDCAD_2015_1"
     :param dir_path: base path
@@ -93,7 +102,8 @@ def store_path_constructor(filename, dir_path):
 
 
 def prepare_data_for_securities_master(file_path):
-    """Opens a file downloaded from FXCM and format it to upload to Securities Master databases
+    """Opens a file downloaded from FXCM and format it to upload to
+    Securities Master databases
 
     """
 
@@ -184,7 +194,10 @@ def insert_validation(filepath, table, tags, abs_tolerance=10):
         client.close()
     except KeyError:
         logger.info('Data from {} not in database'.format(filename))
-        return {'value': 'Not in DB', 'csv': row_count, 'sec_master': 0, 'diff': row_count}
+        return {'value': 'Not in DB',
+                'csv': row_count,
+                'sec_master': 0,
+                'diff': row_count}
 
     difference = abs(row_count - rows_in_db)
     if difference == 0:
@@ -195,7 +208,10 @@ def insert_validation(filepath, table, tags, abs_tolerance=10):
         ans = 'Acceptable'
 
     logger.info('Validation {} difference of {}'.format(ans, difference))
-    return {'value': ans, 'csv': row_count, 'sec_master': rows_in_db, 'diff': difference}
+    return {'value': ans,
+            'csv': row_count,
+            'sec_master': rows_in_db,
+            'diff': difference}
 
 
 def delete_series(tags):
@@ -213,7 +229,13 @@ def delete_series(tags):
 
 
 def get_files_to_load(dir_path, overwrite, validation_type='fast'):
-
+    """ List of all file to be insert.
+    All possible files minus already in database if overwrite is False
+    :param dir_path:
+    :param overwrite:
+    :param validation_type:
+    :return:
+    """
     # Define the set of files to work with
     dir_path = pathlib.Path(dir_path)
     logger.info('Constructing list of files to insert')
@@ -226,21 +248,24 @@ def get_files_to_load(dir_path, overwrite, validation_type='fast'):
             # validates that series by tag value = filename
             already_in_db = series_by_filename(tag='filename', dir_path=dir_path)
         elif validation_type == 'full':
-            logger.info('Verification what is already in database. Be patient. !!!')
+            logger.info('Verification what is already in database. '
+                        'Be patient. !!!')
             # TODO: row_count by file validation. CSV vs DB
 
-        # Deletes last inserted series. this is done for safety, because if last time
-        # the loading function was stopped then the last series could be incomplete.
-        if len(already_in_db) > 0:
+        # Deletes last inserted series. this is done for safety,
+        # because if last time the loading function was stopped then
+        # the last series could be incomplete.
+        if not already_in_db:
             last_insert = list(already_in_db.keys())[-1]
             delete_series(tags={'filename': last_insert})
             del already_in_db[last_insert]
 
-        logger.info('{} files already loaded into database'.format(len(already_in_db)))
+        logger.info('{} files already loaded into database'.format(
+            len(already_in_db)))
         for _k, v in already_in_db.items():
             filepath = pathlib.Path(v)
             if not filepath == last_insert and filepath in all_possible_files:
-                    all_possible_files.remove(filepath)
+                all_possible_files.remove(filepath)
         files = all_possible_files
 
     logger.info('{} files for insert'.format(len(all_possible_files)))
@@ -248,7 +273,8 @@ def get_files_to_load(dir_path, overwrite, validation_type='fast'):
 
 
 def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
-    """ Iterates over a directory and load all the .gz files with tick data from FXCM.
+    """ Iterates over a directory and load all the .gz files with tick
+    data from FXCM.
 
         Files must math REGEX: "^[A-Z]{6}_20\d{1,2}_\d{1,2}.csv.gz"
 
@@ -265,11 +291,14 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
         logger.info('Working on {}'.format(filename))
 
         # Validate if data already is in securities master database.
-        # Number of data points in CSV must be similar (+/- tolerance) to database
-        # to be considered as already inserted.
-        pre_validation = insert_validation(filepath=each_file, table=into_table, tags=tags)
+        # Number of data points in CSV must be similar (+/- tolerance)
+        # to database to be considered as already inserted.
+        pre_validation = insert_validation(filepath=each_file,
+                                           table=into_table,
+                                           tags=tags)
 
-        if pre_validation['value'] == 'Not Acceptable' or pre_validation['value'] == 'Not in DB':
+        if pre_validation['value'] == 'Not Acceptable' or \
+                pre_validation['value'] == 'Not in DB':
             # deletes series with same tags if already in database
             delete_series(tags=tags)
             # turn the CSV into a dataframe ready for insert
@@ -278,22 +307,32 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
             writer(data=data, tags=tags, into_table=into_table)
 
             # Performance post insert validation that data is ok in database
-            # Influx has some trouble with the milliseconds and sometimes drops some data.
-            # Some tolerance is acceptable. Check the validation function for info.
-            post_validation = insert_validation(filepath=each_file, table=into_table, tags=tags)
+            # Influx has some trouble with the milliseconds and sometimes
+            # drops some data. Some tolerance is acceptable.
+            # Check the validation function for info.
+            post_validation = insert_validation(filepath=each_file,
+                                                table=into_table,
+                                                tags=tags)
 
             # Post validation of inserted data
-            if post_validation['value'] == 'Exact' or post_validation['value'] == 'Acceptable':
+            if post_validation['value'] == 'Exact' or \
+                    post_validation['value'] == 'Acceptable':
                 logger.info('Successful insert for {}: {} '
-                            'data points with {} difference'.format(filename, post_validation['sec_master'],
-                                                                    post_validation['diff']))
+                            'data points with {} '
+                            'difference'.format(filename,
+                                                post_validation['sec_master'],
+                                                post_validation['diff']))
             else:
-                logger.error('Error insert for {}: {} difference'.format(filename, post_validation['diff']))
+                logger.error('Error insert for {}: {} '
+                             'difference'.format(filename,
+                                                 post_validation['diff']))
 
         else:
             logger.info('Data for {} already in database:'
-                        ' {} data points with {} difference'.format(filename, pre_validation['sec_master'],
-                                                                    pre_validation['diff']))
+                        ' {} data points with {} '
+                        'difference'.format(filename,
+                                            pre_validation['sec_master'],
+                                            pre_validation['diff']))
 
     logger.info('All data files processed!')
 
@@ -305,10 +344,13 @@ def multiple_file_insert():
     t0 = datetime.datetime.now()
 
     logger.info('#'*90)
-    logger.info('########################### START LOADING MULTIPLE TICK FILES ############################')
+    logger.info('#'*27 + ' START LOADING MULTIPLE TICK FILES ' + '#'*27)
     logger.info('#' * 90)
 
-    load_multiple_tick_files(dir_path=store, provider='fxcm', into_table='fx_ticks', overwrite=False)
+    load_multiple_tick_files(dir_path=store,
+                             provider='fxcm',
+                             into_table='fx_ticks',
+                             overwrite=False)
     t1 = datetime.datetime.now()
     logger.info('TOTAL RUNNING TIME WAS: {}'.format(t1 - t0))
 
@@ -319,7 +361,8 @@ def insert_one_series():
             'symbol': 'GBPUSD'}
 
     filepath = pathlib.Path(
-        '/media/javier/My Passport/Trading/data/clean_fxcm/LOADED/GBPUSD/2016/GBPUSD_2016_23.csv.gz')
+        '/media/javier/My Passport/Trading/data/clean_fxcm'
+        '/LOADED/GBPUSD/2016/GBPUSD_2016_23.csv.gz')
 
     # deletes series with same tags if already in database
     delete_series(tags=tags)

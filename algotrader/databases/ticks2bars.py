@@ -10,7 +10,7 @@ from common.utilities import fn_timer
 import logging
 
 
-def time_bounds(measurement, symbol, provider, position=['FIRST', 'LAST']):
+def time_bounds(measurement, symbol, provider, position=('FIRST', 'LAST')):
     """ Get the first and/or last datetime for a series in a measurement
 
     :param measurement:
