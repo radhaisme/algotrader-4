@@ -10,7 +10,6 @@ https://www.dataquest.io/blog/pandas-big-data/
 import datetime
 import logging
 import pathlib
-import sys
 from collections import OrderedDict
 from gzip import open as opengz
 
@@ -24,16 +23,18 @@ from databases.influx_manager import influx_client
 from log.logging import setup_logging
 
 
-def series_by_filename(tag, dir_path):
-    """Returns dictionary with only path for files already in database
+def series_by_filename(tag, clean_store_dirpath):
+    """Returns dictionary with path for files already in database, as defined
+    as filename tag present.
 
     :param tag: 'filename'
-    :param dir_path: base path
-    :return: {filename: filepath
+    :param clean_store_dirpath: base path
+    :return: {filename: filepath}
     """
     database = 'securities_master'
-
-    cql = 'SHOW TAG VALUES ON \"{}\" WITH KEY=\"{}\"'.format(database, tag)
+    cql = 'SHOW TAG VALUES ON \"{}\" ' \
+          'WITH KEY=\"{}\"'.format(database,
+                                   tag)
     try:
         client = influx_client(client_type='client', user_type='reader')
         cql_response = client.query(cql).items()
@@ -51,20 +52,24 @@ def series_by_filename(tag, dir_path):
     ans = OrderedDict()
     for resp in response:
         filename = resp['value']
-        store_path = store_path_constructor(filename=filename, dir_path=dir_path)
+        store_path = store_path_constructor(filename=filename,
+                                            dir_path=clean_store_dirpath)
         ans[filename] = store_path
     return ans
 
 
-def series_in_table(table, dir_path):
-    """Returns dictionary with info of all series in a given table
+def series_by_filename_row(table, clean_store_dirpath, abs_tolerance = 10):
+    """Returns dictionary with path for files already in database, as defined
+    as filename tag present and checking row_count in database vs CSV
 
     :param table: table name
-    :param dir_path: base path
+    :param clean_store_dirpath: base path
+    :param abs_tolerance:
     :return: {filename: {row_count, filepath}
     """
 
-    cql = 'SELECT COUNT(bid) FROM {} GROUP BY filename'.format(table)
+    cql = 'SELECT COUNT(bid) ' \
+          'FROM {} GROUP BY filename'.format(table)
     try:
         client = influx_client(client_type='dataframe', user_type='reader')
         response = client.query(cql).items()
@@ -75,13 +80,17 @@ def series_in_table(table, dir_path):
 
     # https://stackoverflow.com/a/39537308/3512107
     ans = OrderedDict()
-    for resp in response:
-        filename = resp[0][1][0][1]
-        row_count = resp[1]['count'].iloc[0]
+    for each_resp in response:
+        filename = each_resp[0][1][0][1]
+        row_count_db = each_resp[1]['count'].iloc[0]
         store_path = store_path_constructor(filename=filename,
-                                            dir_path=dir_path)
-        ans[filename] = {'row_count': row_count,
-                         'filepath': store_path}
+                                            dir_path=clean_store_dirpath)
+        row_count_csv = sum(1 for _r in opengz(store_path, 'r')) - 1
+
+        difference = abs(row_count_db - row_count_csv)
+        if difference <= abs_tolerance:
+            ans[filename] = store_path
+
     return ans
 
 
@@ -122,7 +131,7 @@ def prepare_for_securities_master(file_path):
                          engine='c')
     except OSError:
         logger.exception('Error reading file %s,', filename)
-        sys.exit(-1)
+        raise SystemError
 
     logger.info('File: %s ready for insert', filename)
     return df
@@ -169,7 +178,7 @@ def writer(data, tags, into_table):
         logger.info('Data insert OK for %s', tags['filename'])
     except (InfluxDBServerError, InfluxDBClientError):
         logger.exception('Error data insert - %s', tags['filename'])
-        sys.exit(-1)
+        raise SystemError
 
 
 def insert_validation(filepath, table, tags, abs_tolerance=10):
@@ -227,10 +236,11 @@ def delete_series(tags):
         logger.exception('Could not delete series %s', tags['filename'])
 
 
-def get_files_to_load(dir_path, overwrite, validation_type='fast'):
+def get_files_to_load(dir_path, table, overwrite, validation_type='fast'):
     """ List of all file to be insert.
     All possible files minus already in database if overwrite is False
     :param dir_path:
+    :param table
     :param overwrite:
     :param validation_type:
     :return:
@@ -246,11 +256,12 @@ def get_files_to_load(dir_path, overwrite, validation_type='fast'):
         if validation_type == 'fast':
             # validates that series by tag value = filename
             already_in_db = series_by_filename(tag='filename',
-                                               dir_path=dir_path)
+                                               clean_store_dirpath=dir_path)
         elif validation_type == 'full':
             logger.info('Verification what is already in database. '
                         'Be patient. !!!')
-            # TODO: row_count by file validation. CSV vs DB
+            already_in_db = series_by_filename_row(table=table,
+                                                   clean_store_dirpath=dir_path)
 
         # Deletes last inserted series. this is done for safety,
         # because if last time the loading function was stopped then
@@ -259,6 +270,8 @@ def get_files_to_load(dir_path, overwrite, validation_type='fast'):
             last_insert = list(already_in_db.keys())[-1]
             delete_series(tags={'filename': last_insert})
             del already_in_db[last_insert]
+        else:
+            last_insert = None
 
         logger.info('%d files already loaded into database',
                     len(already_in_db))
@@ -273,13 +286,15 @@ def get_files_to_load(dir_path, overwrite, validation_type='fast'):
     return files
 
 
-def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False):
+def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False,
+                             validation_type='fast'):
     """ Iterates over a directory and load all the .gz files with tick data
     from FXCM.
     Files must math REGEX: "^[A-Z]{6}_20\\d{1,2}_\\d{1,2}.csv.gz"
     """
 
-    files = get_files_to_load(dir_path=dir_path, overwrite=overwrite)
+    files = get_files_to_load(dir_path=dir_path, overwrite=overwrite,
+                              validation_type=validation_type, table=into_table)
 
     # Loop each file in directory
     for each_file in files:
@@ -352,7 +367,8 @@ def multiple_file_insert():
     load_multiple_tick_files(dir_path=store,
                              provider='fxcm',
                              into_table='fx_ticks',
-                             overwrite=False)
+                             overwrite=False,
+                             validation_type='full')
     time1 = datetime.datetime.now()
     logger.info('TOTAL RUNNING TIME WAS: %s', (time1 - time0))
 
