@@ -1,8 +1,8 @@
-import os
-import yaml
-import pathlib
 import logging
+import os
+import pathlib
 
+import yaml
 
 ############################################################################
 #               ALL CONFIG SELECTIONS FROM HERE                            #
@@ -15,7 +15,7 @@ STRATEGY_SETTINGS = None
 
 
 class ATSett:
-    """Access to general configuration options of AlgoTrader System."""
+    """General configuration options of AlgoTrader System."""
     def __init__(self, get_from='env'):
         """
         :param get_from: 'env' for environmental variable
@@ -23,6 +23,7 @@ class ATSett:
         """
         self.get_from = get_from
         self.stream = self._stream()
+        self.config_path = None
 
     # Internal functions
     def _path_from_env(self):
@@ -31,7 +32,8 @@ class ATSett:
             self.config_path = pathlib.Path(env_value)
         except (KeyError, FileNotFoundError, AttributeError):
             # TODO revise exceptions here
-            logging.exception('Environmental Variable not correctly configured or no present.')
+            logging.exception('Environmental Variable not correctly '
+                              'configured or no present.')
             raise SystemError
 
     def _path_from_file(self):
@@ -79,5 +81,10 @@ class ATSett:
 
 
 class StratSett:
+    """Strategy configuration options
+
+    """
     def __init__(self):
         raise NotImplementedError
+
+

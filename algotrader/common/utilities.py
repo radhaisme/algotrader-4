@@ -1,8 +1,12 @@
+
+"""
+Some utilities used across the program
+"""
+import datetime
 import os
 import pathlib
-from itertools import tee, islice, chain
-import datetime
 from functools import wraps
+from itertools import tee, islice, chain
 
 
 def rename_files(dir_path):
