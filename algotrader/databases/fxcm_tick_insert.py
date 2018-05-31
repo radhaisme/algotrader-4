@@ -58,7 +58,7 @@ def series_by_filename(tag, clean_store_dirpath):
     return ans
 
 
-def series_by_filename_row(table, clean_store_dirpath, abs_tolerance = 10):
+def series_by_filename_row(table, clean_store_dirpath, abs_tolerance=10):
     """Returns dictionary with path for files already in database, as defined
     as filename tag present and checking row_count in database vs CSV
 
@@ -67,29 +67,43 @@ def series_by_filename_row(table, clean_store_dirpath, abs_tolerance = 10):
     :param abs_tolerance:
     :return: {filename: {row_count, filepath}
     """
+    # Get the filename tags in the database
+    tags_by_filename = \
+        series_by_filename(tag='filename',
+                           clean_store_dirpath=clean_store_dirpath)
 
-    cql = 'SELECT COUNT(bid) ' \
-          'FROM {} GROUP BY filename'.format(table)
-    try:
-        client = influx_client(client_type='dataframe', user_type='reader')
-        response = client.query(cql).items()
-        client.close()
-    except InfluxDBClientError:
-        logger.exception('Could not query series in table')
-        raise SystemError
+    # For each series in database
+    ans = dict()
+    for each_filename, each_path in tags_by_filename.items():
+        # query row count
+        cql = 'SELECT COUNT(bid) ' \
+              'FROM {} ' \
+              'WHERE filename=\'{}\''.format(table,
+                                             each_filename)
+        try:
+            client = influx_client(client_type='client', user_type='reader')
+            cql_response = client.query(cql).items()
+            client.close()
+        except InfluxDBClientError:
+            logger.exception('Could not query series in table')
+            raise SystemError
+        row_count_db = next(cql_response[0][1])['count']
+        # get row count in csv
+        row_count_csv = sum(1 for _r in opengz(each_path, 'r')) - 1
 
-    # https://stackoverflow.com/a/39537308/3512107
-    ans = OrderedDict()
-    for each_resp in response:
-        filename = each_resp[0][1][0][1]
-        row_count_db = each_resp[1]['count'].iloc[0]
-        store_path = store_path_constructor(filename=filename,
-                                            dir_path=clean_store_dirpath)
-        row_count_csv = sum(1 for _r in opengz(store_path, 'r')) - 1
-
+        # compare the two results
         difference = abs(row_count_db - row_count_csv)
         if difference <= abs_tolerance:
-            ans[filename] = store_path
+            logger.info('%s already in database with %d data points and %d '
+                        'difference',
+                        each_filename, row_count_db, difference)
+            ans[each_filename] = each_path
+        else:
+            logger.warning('Incomplete series %s deleted, difference %d',
+                           each_filename, difference)
+            # if difference is greater the series is incomplete, something
+            # went wrong. Delete it !
+            delete_series(tags={'filename': each_filename})
 
     return ans
 
@@ -202,10 +216,8 @@ def insert_validation(filepath, table, tags, abs_tolerance=10):
         client.close()
     except KeyError:
         logger.info('Data from %s not in database', filename)
-        return {'value': 'Not in DB',
-                'csv': row_count,
-                'sec_master': 0,
-                'diff': row_count}
+        return {'value': 'Not in DB', 'csv': row_count,
+                'sec_master': 0, 'diff': row_count}
 
     difference = abs(row_count - rows_in_db)
     if difference == 0:
@@ -216,10 +228,8 @@ def insert_validation(filepath, table, tags, abs_tolerance=10):
         ans = 'Acceptable'
 
     logger.info('Validation %s difference of %d', ans, difference)
-    return {'value': ans,
-            'csv': row_count,
-            'sec_master': rows_in_db,
-            'diff': difference}
+    return {'value': ans, 'csv': row_count,
+            'sec_master': rows_in_db, 'diff': difference}
 
 
 def delete_series(tags):
@@ -368,7 +378,7 @@ def multiple_file_insert():
                              provider='fxcm',
                              into_table='fx_ticks',
                              overwrite=False,
-                             validation_type='full')
+                             validation_type='fast')
     time1 = datetime.datetime.now()
     logger.info('TOTAL RUNNING TIME WAS: %s', (time1 - time0))
 
