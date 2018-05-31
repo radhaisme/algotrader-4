@@ -11,7 +11,7 @@ import logging
 import re
 from time import sleep
 from common.settings import ATSett
-from log.logging import setup_logging
+from log.log_settings import setup_logging
 
 # Available symbols from FXCM server.
 SYMBOLS = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',

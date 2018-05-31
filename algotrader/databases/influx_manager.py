@@ -10,7 +10,7 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
 from common.settings import ATSett
-from log.logging import setup_logging
+from log.log_settings import setup_logging
 
 
 def influx_client(client_type='client', user_type='reader'):
@@ -138,12 +138,3 @@ def series_info_count(measurement, series):
     del datapoint['time']
     return datapoint
 
-
-if __name__ == '__main__':
-    setup_logging()
-    logger = logging.getLogger(__name__)
-    # db_server_info()
-    my_series = available_series('fx_ticks')
-
-    for s in my_series:
-        print(s)

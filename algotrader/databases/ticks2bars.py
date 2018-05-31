@@ -10,7 +10,7 @@ from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
 from databases.fxcm_tick_insert import series_by_filename
 from databases.influx_manager import influx_client
-from log.logging import setup_logging
+from log.log_settings import setup_logging
 
 
 def time_bounds(measurement, symbol, provider, position=('FIRST', 'LAST')):

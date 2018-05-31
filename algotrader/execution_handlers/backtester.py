@@ -3,7 +3,7 @@
 import logging
 import queue
 from price_handlers.historic_sec_master import HistoricFxTickPriceHandler, HistoricBarPriceHandler
-from log.logging import setup_logging
+from log.log_settings import setup_logging
 import datetime
 
 

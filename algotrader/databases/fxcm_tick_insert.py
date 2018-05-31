@@ -20,7 +20,7 @@ from pytz import utc
 from common.settings import ATSett
 from data_acquisition.fxmc import in_store
 from databases.influx_manager import influx_client
-from log.logging import setup_logging
+from log.log_settings import setup_logging
 
 
 def series_by_filename(tag, clean_store_dirpath):
