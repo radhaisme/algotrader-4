@@ -8,8 +8,7 @@ import logging
 import pandas as pd
 from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
-from common.utilities import fn_timer
-from databases.influx_manager import available_series
+from databases.fxcm_tick_insert import series_by_filename
 from databases.influx_manager import influx_client
 from log.logging import setup_logging
 
@@ -23,7 +22,7 @@ def time_bounds(measurement, symbol, provider, position=('FIRST', 'LAST')):
     :param position:
     :return:
     """
-    client = influx_client()
+    client = influx_client(client_type='client', user_type='reader')
     ans = {}
     for each_position in position:
         cql = 'SELECT {}(ask) ' \
@@ -143,13 +142,11 @@ def insert_bars_to_sec_master(client, bars, table_prefix, frequency, symbol,
                             protocol=protocol,
                             numeric_precision='full',
                             field_columns=field_columns)
-        logger.info('Insert successful for %s at %s', symbol, table_name)
     except (InfluxDBClientError, InfluxDBServerError):
         logger.exception('Error inserting data for %s at &s', tags, table_name)
         raise SystemError
 
 
-@fn_timer
 def tick_resampling(symbol, provider, input_table, output_table_prefix,
                     custom_dates=False, start_time=None, end_time=None,
                     frequency='1min'):
@@ -178,16 +175,14 @@ def tick_resampling(symbol, provider, input_table, output_table_prefix,
         start_time = bounds['FIRST']
         end_time = bounds['LAST']
 
-    client = influx_client(client_type='dataframe')
+    client = influx_client(client_type='dataframe', user_type='writer')
 
     # Define the time extension of each query.
     # The bigger the number, more RAM needed.
     delta = datetime.timedelta(hours=24)
 
     while start_time <= end_time:
-        logger.info('Working on %s at %s', symbol, start_time)
         partial_end = start_time + delta
-
         cql = 'SELECT time, bid, ask FROM {} ' \
               'WHERE symbol=\'{}\' ' \
               'AND provider=\'{}\' ' \
@@ -203,12 +198,37 @@ def tick_resampling(symbol, provider, input_table, output_table_prefix,
             # Insert into securities master database
             insert_bars_to_sec_master(client, bars, output_table_prefix,
                                       frequency, symbol, provider)
+            logger.info('Data for %s from %s to %s OK!', symbol,
+                        start_time, end_time )
         except (KeyError, InfluxDBClientError):
-            logger.warning('No data for %s at %s', symbol, start_time)
-
+            logger.warning('No data for %s from %s to %s', symbol,
+                           start_time, end_time)
         start_time = partial_end
     client.close()
-    return bars
+
+
+def get_other_tags(table, filename):
+    """
+
+    :param table:
+    :param filename:
+    :return:
+    """
+    try:
+        # get tags
+        cql = 'SELECT * ' \
+              'FROM {} ' \
+              'WHERE filename=\'{}\' ' \
+              'LIMIT 1'.format(table,
+                               filename)
+        client = influx_client(client_type='client', user_type='reader')
+        response = next(client.query(cql).get_points())
+    except (InfluxDBClientError, InfluxDBServerError):
+        logger.exception('Could no query the database')
+        raise SystemError
+
+    return {'provider': response['provider'],
+            'symbol': response['symbol']}
 
 
 def load_all_series(input_table='fx_ticks'):
@@ -217,26 +237,31 @@ def load_all_series(input_table='fx_ticks'):
     :param input_table:
     :return:
     """
-    t0 = datetime.datetime.now()
 
-    tick_series = available_series(input_table)
-    for each_series in tick_series:
-        t1 = datetime.datetime.now()
+    # get the file names already in database
+    tick_series = series_by_filename(tag='filename', clean_store_dirpath='')
 
-        tick_resampling(output_table_prefix='fx', symbol=each_series[0], 
-                        provider=each_series[1], input_table=input_table)
+    # now we need to get the other tags
+    # and do the resampling to the desired frequency
+    for each_series in tick_series.keys():
+        tags = get_other_tags(input_table, each_series)
 
-        t2 = datetime.datetime.now()
-        logger.info('TOTAL RUNNING TIME FOR %s - %d', each_series[0], t2 - t1)
+        # TODO: Check if already series exist, and until what date
+        # if series_exist:
+        #     custom dates
 
-    t4 = datetime.datetime.now()
-
-    delta_loop = (t4-t0)
-    logger.info('TOTAL RUNNING TIME - %', delta_loop)
+        tick_resampling(output_table_prefix='fx',
+                        symbol=tags['symbol'],
+                        provider=tags['provider'],
+                        input_table=input_table,
+                        custom_dates=False,
+                        frequency='1min' )
+    logger.info('Insert all series finished.')
 
 
 def main():
     logger.info('############ NEW RUN ##################')
+    # load_all_series()
     tick_resampling(symbol='AUDCAD',
                     provider='fxcm',
                     input_table='fx_ticks',
