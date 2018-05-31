@@ -49,16 +49,25 @@ def available_series(measurement):
     :return:
     """
     cql = "SELECT count(*) FROM \"{}\" " \
-          "GROUP BY filename LIMIT 1".format(measurement)
+          "GROUP BY filename".format(measurement)
+    ans = dict()
     try:
         client = influx_client(client_type='dataframe', user_type='reader')
-        ans = client.query(query=cql)[measurement]
-        return [(x[0].get('symbol'),
-                 x[0].get('filename'),
-                 x[0].get('provider')) for x in ans]
+        qry_ans = client.query(query=cql)[measurement]
+
+        # return [(x[0].get('symbol'),
+        #          x[0].get('filename'),
+        #          x[0].get('provider')) for x in qry_ans]
     except (InfluxDBClientError, InfluxDBServerError):
         logging.exception('Can not obtain series info.')
-        sys.exit(-1)
+        raise SystemError
+
+    # for item in qry_ans:
+    #     key = item[0].get('filename')
+    #     value = {'symbol':(x[0].get('symbol'),
+    #              'provider'
+    #                        }
+
 
 
 def db_server_info():
