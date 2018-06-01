@@ -23,7 +23,8 @@ setts = ATSett()
 
 
 def in_store(store_path):
-    """Return list of files that match the predefined REGEX inside the originals store
+    """Return list of files that match the predefined REGEX inside the
+    originals store.
 
     :return: matches_lst, no_matches_lst
     """
@@ -104,7 +105,8 @@ def definitive_urls(overwrite, end_date):
     :return: urls dictionary
     """
     logger.info('Building urls dictionary')
-    # Construct all possible URL and saving paths since 2015-01-01 until the end date.
+    # Construct all possible URL and saving paths since 2015-01-01 until the
+    # end date.
     possible_urls = all_possible_urls(end_date)
 
     if not overwrite:
@@ -125,7 +127,8 @@ def get_files(urls):
     :param urls: dic with url and saving paths
     :return:
     """
-    logger.info('Request for files started. {} files in queue'.format(len(urls)))
+    logger.info('Request for files started. '
+                '{} files in queue'.format(len(urls)))
 
     # Run for every file
     for key in urls:
@@ -138,7 +141,8 @@ def get_files(urls):
         pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
         # Check for the created directory.
         if not pathlib.Path.is_dir(dir_path):
-            logger.exception("Error creating the directory: {}".format(dir_path))
+            logger.exception("Error creating "
+                             "the directory: {}".format(dir_path))
             sys.exit(-1)
 
         try:
@@ -157,7 +161,10 @@ def get_files(urls):
                     for chunk in r.iter_content(chunk_size):
                         f.write(chunk)
             else:
-                logger.exception('Could not get file: {} - status {}'.format(file_path, r.status_code))
+                logger.exception('Could not get '
+                                 'file: {} - '
+                                 'status {}'.format(file_path,
+                                                    r.status_code))
                 sys.exit(-1)
         except requests.exceptions.RequestException as e:
             logger.exception('Error requesting: {}'.format(url))
@@ -188,13 +195,15 @@ def clean_fxcm_originals(original_dirpath, clean_dirpath):
         # get the components of the path
         path_parts = pathlib.Path(each_file).parts
         # Create a new path in clean directory
-        clean_file_path = clean_dir_path / path_parts[-3] / path_parts[-2] / path_parts[-1]
+        clean_file_path = clean_dir_path / path_parts[-3] / path_parts[-2] / \
+                          path_parts[-1]
         # Get the new parent
         new_parent_dir = pathlib.Path(clean_file_path).parent
 
         if clean_file_path not in clean_files:
-            # Recursively creates the directory and does not raise an exception if
-            # the directory already exists. See: https://goo.gl/rn3q4E
+            # Recursively creates the directory and does not raise an
+            # exception if the directory already exists.
+            # See: https://goo.gl/rn3q4E
             pathlib.Path(new_parent_dir).mkdir(parents=True, exist_ok=True)
 
             # Open, clean and creates a new file
@@ -202,36 +211,39 @@ def clean_fxcm_originals(original_dirpath, clean_dirpath):
                 data = f.read()
 
             with gzip.open(clean_file_path, 'wb') as f:
-                f.write(data.decode('utf-8').replace('\x00', '').encode('utf-8'))
+                f.write(
+                    data.decode('utf-8').replace('\x00', '').encode('utf-8'))
 
             counter += 1
-            logger.info('Doing {} out of {} - {:.3%}'.format(counter, total_original_files,
-                                                             counter / total_original_files))
+            logger.info('Doing {} '
+                        'out of {} - '
+                        '{:.3%}'.format(counter,
+                                        total_original_files,
+                                        counter / total_original_files))
             logger.info('Clean file: {}'.format(clean_file_path))
         else:
             counter += 1
-            logger.info('Doing {} out of {} - {:.3%}'.format(counter, total_original_files,
-                                                             counter / total_original_files))
+            logger.info('Doing {} '
+                        'out of {} - '
+                        '{:.3%}'.format(counter, total_original_files,
+                                        counter / total_original_files))
             logger.info('File {} already in store'.format(clean_file_path))
 
 
 def update_all(final_date):
     """Main update function for FXCM files
-    Download and clean files from server and save then in the appropriate location.
-
-    Run from 2001-01-01 as provided by fxcm
+    Download and clean files from server and save then in the appropriate
+    location. Run from 2014-01-01 as provided by fxcm
 
     :param final_date: date to run to
     :return: updated original and clean directories.
     """
     urls = definitive_urls(overwrite=False,
-                           end_date=final_date
-                           )
+                           end_date=final_date)
     get_files(urls)
 
     clean_fxcm_originals(original_dirpath=setts.store_originals_fxcm(),
-                         clean_dirpath=setts.store_originals_fxcm()
-                         )
+                         clean_dirpath=setts.store_originals_fxcm())
 
 
 if __name__ == '__main__':

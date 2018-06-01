@@ -52,7 +52,7 @@ def zero_bytes_files(dir_path, action=None):
     for each_file in dir_path.glob('**/*.gz'):
         print('Checking file: {}'.format(each_file))
 
-        if os.stat(each_file).st_size == 100000:   #size in bytes
+        if os.stat(each_file).st_size == 100000:   # size in bytes
             zeros.append(each_file)
 
     if action is None:
@@ -112,6 +112,7 @@ def fn_timer(function):
     """
     @wraps(function)
     def function_timer(*args, **kwargs):
+
         t0 = datetime.datetime.now()
         result = function(*args, **kwargs)
         t1 = datetime.datetime.now()
@@ -120,7 +121,3 @@ def fn_timer(function):
     return function_timer
 
 
-if __name__ == '__main__':
-    my_path = "/media/sf_D_DRIVE/Trading/data/clean_fxcm"
-    # rename_files(my_path)
-    zero_bytes_files(my_path, action='print')

@@ -19,7 +19,7 @@ from pytz import utc
 import databases.influx_manager as db_man
 from common.settings import ATSett
 from data_acquisition.fxmc import in_store
-from log.log_settings import setup_logging
+from log.log_settings import setup_logging, log_title
 
 
 def series_by_filename(tag, clean_store_dirpath):
@@ -330,9 +330,7 @@ def multiple_file_insert():
     store = pathlib.Path(ATSett().store_clean_fxcm())
     time0 = datetime.datetime.now()
 
-    logger.info('#' * 90)
-    logger.info('#' * 27 + ' START LOADING MULTIPLE TICK FILES ' + '#' * 28)
-    logger.info('#' * 90)
+    log_title("START LOADING MULTIPLE TICK FILES")
 
     load_multiple_tick_files(dir_path=store,
                              provider='fxcm',

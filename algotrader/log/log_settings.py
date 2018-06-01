@@ -53,6 +53,37 @@ class UTCFormatter(Formatter):
     converter = time.gmtime
 
 
+def log_title(msg):
+    """Format for log titles
+
+    :param msg:
+    :return:
+    """
+    total_len = 120
+    len_msg = len(msg)
+
+    sides_space = (total_len-len_msg) - 2
+    l_space = sides_space / 2
+    r_space = l_space
+
+    if sides_space % 2 != 0:
+        r_space += 1
+
+    l_str = int(l_space) * " "
+    r_str = int(r_space) * " "
+
+    complete_line = ('#' * total_len)
+    msg_line = ('#' + l_str + msg + r_str + '#')
+    space_line = "#" + (" " * (total_len - 2)) + "#"
+
+    logging.info(complete_line)
+    logging.info(space_line)
+    logging.info(msg_line)
+    logging.info(space_line)
+    logging.info(complete_line)
+
+
+
 def log_test():
     x = 1
     print(x)
