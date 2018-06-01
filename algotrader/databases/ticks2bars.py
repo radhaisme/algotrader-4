@@ -4,47 +4,40 @@ Converts ticks to bars
 """
 import datetime
 import logging
-
+from common.utilities import iter_islast
 import pandas as pd
 from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
-from databases.fxcm_tick_insert import series_by_filename
-from databases.influx_manager import influx_client
+from databases.influx_manager import influx_qry
 from log.log_settings import setup_logging
 
 
-def time_bounds(measurement, symbol, provider, position=('FIRST', 'LAST')):
-    """ Get the first and/or last datetime for a series in a measurement
-
-    :param measurement:
-    :param symbol:
-    :param provider:
-    :param position:
-    :return:
+def time_bounds(table, tags, position=('FIRST', 'LAST')):
+    """ Get the first and/or last datetime for a series in a table
+    a Series is defined by its tags
     """
-    client = influx_client(client_type='client', user_type='reader')
+    # construct WHERE part of the cql query, using all tags provided
+    where_cql = 'WHERE '
+    for k, islast in iter_islast(tags):
+        constructor = '\"' + k + '\"=' + '\'' + tags[k] + '\' '
+        if islast:
+            where_cql = where_cql + constructor
+        else:
+            where_cql = where_cql + constructor + 'AND '
+
     ans = {}
     for each_position in position:
-        cql = 'SELECT {}(ask) ' \
-              'FROM \"{}\" ' \
-              'WHERE symbol=\'{}\' ' \
-              'AND provider=\'{}\''.format(each_position,
-                                           measurement,
-                                           symbol,
-                                           provider)
+        cql = 'SELECT {}(open) ' \
+              'FROM \"{}\" {}'.format(each_position,
+                                      table,
+                                      where_cql)
 
-        try:
-            time_on_db = pd.to_datetime(next(client.query(query=cql)[measurement])['time'])
-        except (InfluxDBClientError, InfluxDBServerError):
-            logger.exception('Error reading time bounds')
-            raise SystemError
+        response = influx_qry(cql).get_points()
+        time_on_db = pd.to_datetime([t for t in response][0]['time'])
 
+        # adjust to lower minute
+        # construct the answer as a dict
         ans[each_position] = one_minute_adjustment(time_on_db)
-        ans['symbol'] = symbol
-        ans['provider'] = provider
-        ans['measurement'] = measurement
-
-    client.close()
 
     return ans
 
@@ -147,9 +140,8 @@ def insert_bars_to_sec_master(client, bars, table_prefix, frequency, symbol,
         raise SystemError
 
 
-def tick_resampling(symbol, provider, input_table, output_table_prefix,
-                    custom_dates=False, start_time=None, end_time=None,
-                    frequency='1min'):
+def tick_resampling(input_table, output_table_prefix, tags, custom_dates=False,
+                    start_datetime=None, end_datetime=None, ):
     """Re sample tick data in securities master to desired frequency
 
     :param symbol:
@@ -166,16 +158,15 @@ def tick_resampling(symbol, provider, input_table, output_table_prefix,
     # Define the bounds
     if custom_dates:
         # We use the given dates as bounds
-        start_time = pd.to_datetime(start_time)
-        end_time = pd.to_datetime(end_time)
+        start_time = pd.to_datetime(start_datetime)
+        end_time = pd.to_datetime(end_datetime)
     else:
-        # We find the bounds of the series in the database
-        bounds = time_bounds(measurement=input_table, symbol=symbol,
+        # We find the bounds of the series in the database fx-tick
+        bounds = time_bounds(table=input_table, symbol=symbol,
                              provider=provider)
         start_time = bounds['FIRST']
         end_time = bounds['LAST']
 
-    client = influx_client(client_type='dataframe', user_type='writer')
 
     # Define the time extension of each query.
     # The bigger the number, more RAM needed.
@@ -192,7 +183,7 @@ def tick_resampling(symbol, provider, input_table, output_table_prefix,
 
         try:
             # Get the ticks requested
-            ticks = client.query(cql)[input_table]
+            ticks = influx_qry(cql)[input_table]
             # Call the re sampling function
             bars = ticks_to_bars(ticks)
             # Insert into securities master database
@@ -207,66 +198,107 @@ def tick_resampling(symbol, provider, input_table, output_table_prefix,
     client.close()
 
 
-def get_other_tags(table, filename):
-    """
+# def get_series_tags(filename):
+#     """
+#
+#     :param filename:
+#     :return:
+#     """
+#     try:
+#         # get tags
+#         cql = 'SHOW TAG VALUES ON "securities_master" ' \
+#               'WITH KEY IN ("provider", "symbol", "filename")' \
+#               ' WHERE filename=\'{}\''.format(filename)
+#
+#         client = influx_client(client_type='client', user_type='reader')
+#         response = client.query(cql).get_points()
+#         client.close()
+#     except (InfluxDBClientError, InfluxDBServerError):
+#         logger.exception('Could no query the database')
+#         raise SystemError
+#
+#     return {each_dict['key']: each_dict['value'] for each_dict in response}
+#
+
+
+def get_series_tags(table):
+    """Returns tags of each series in a table
 
     :param table:
-    :param filename:
-    :return:
+    :return: list of dictionaries
     """
-    try:
-        # get tags
-        cql = 'SELECT * ' \
-              'FROM {} ' \
-              'WHERE filename=\'{}\' ' \
-              'LIMIT 1'.format(table,
-                               filename)
-        client = influx_client(client_type='client', user_type='reader')
-        response = next(client.query(cql).get_points())
-    except (InfluxDBClientError, InfluxDBServerError):
-        logger.exception('Could no query the database')
-        raise SystemError
+    # get tags
+    cql = 'SHOW SERIES ON "securities_master" FROM \"{}\"'.format(table)
+    response = influx_qry(cql).get_points()
 
-    return {'provider': response['provider'],
-            'symbol': response['symbol']}
+    # Create a list from the generator
+    # Everything before the first comma is the measurement name - remove
+    all_series = [series['key'][len(table)+1:] for series in response]
+
+    # split the tags, comma separated
+    series_split = []
+    for each_series in all_series:
+        series_split.append([x.strip() for x in each_series.split(',')])
+
+    # the value before the = is the tag key
+    # the value after the = is the tag value
+    ans = []
+    for each_split in series_split:
+        inner_dict = dict()
+        for each_part in each_split:
+            series_tags = each_part.split('=')
+            # Creates a dictionary for each series
+            inner_dict[series_tags[0]] = series_tags[1]
+        # store all dictionaries in a list
+        ans.append(inner_dict)
+
+    return ans
 
 
-def load_all_series(input_table='fx_ticks'):
+def load_all_series(input_table, output_table_prefix, freq):
     """ Load all series of a table and call resampling
 
-    :param input_table:
-    :return:
     """
+    output_table = output_table_prefix + freq
 
-    # get the file names already in database
-    tick_series = series_by_filename(tag='filename', clean_store_dirpath='')
+    tick_series = get_series_tags(input_table)
+    bar_series = get_series_tags(output_table)
 
-    # now we need to get the other tags
-    # and do the resampling to the desired frequency
-    for each_series in tick_series.keys():
-        tags = get_other_tags(input_table, each_series)
+    for each_series in tick_series:
+        tags_in_bar_series = {'frequency': freq,
+                              'symbol': each_series['symbol'],
+                              'provider': each_series['provider']}
 
-        # TODO: Check if already series exist, and until what date
-        # if series_exist:
-        #     custom dates
+        # Verify if series already in database
+        if tags_in_bar_series in bar_series:
+            # get the dates
+            bounds = time_bounds(output_table, tags_in_bar_series)
+            custom_dates = True
+            start_datetime = bounds['LAST']
+        else:
+            custom_dates = False
+            start_datetime = None
 
         tick_resampling(output_table_prefix='fx',
-                        symbol=tags['symbol'],
-                        provider=tags['provider'],
+                        tags=tags_in_bar_series,
                         input_table=input_table,
-                        custom_dates=False,
-                        frequency='1min' )
+                        custom_dates=custom_dates,
+                        start_datetime=start_datetime)
+
+
     logger.info('Insert all series finished.')
 
 
 def main():
     logger.info('############ NEW RUN ##################')
-    # load_all_series()
-    tick_resampling(symbol='AUDCAD',
-                    provider='fxcm',
-                    input_table='fx_ticks',
-                    custom_dates=False,
-                    output_table_prefix='fx')
+
+    load_all_series(input_table='fx_ticks', output_table_prefix='fx_',
+                    freq='1min')
+    # tick_resampling(symbol='AUDCAD',
+    #                 provider='fxcm',
+    #                 input_table='fx_ticks',
+    #                 custom_dates=False,
+    #                 output_table_prefix='fx')
 
 
 if __name__ == '__main__':

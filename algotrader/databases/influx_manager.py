@@ -3,14 +3,13 @@
 Manage the connections to Influx Server
 """
 import logging
-import sys
+
 
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
 from common.settings import ATSett
-from log.log_settings import setup_logging
 
 
 def influx_client(client_type='client', user_type='reader'):
@@ -39,35 +38,6 @@ def influx_client(client_type='client', user_type='reader'):
     except (InfluxDBServerError, InfluxDBClientError, KeyError):
         logging.exception('Can not connect to database Influxdb.')
         raise SystemError
-
-
-def available_series(measurement):
-    """Return list of tuples (symbol, provider) with available
-     series in a measurement
-
-    :param measurement:
-    :return:
-    """
-    cql = "SELECT count(*) FROM \"{}\" " \
-          "GROUP BY filename".format(measurement)
-    ans = dict()
-    try:
-        client = influx_client(client_type='dataframe', user_type='reader')
-        qry_ans = client.query(query=cql)[measurement]
-
-        # return [(x[0].get('symbol'),
-        #          x[0].get('filename'),
-        #          x[0].get('provider')) for x in qry_ans]
-    except (InfluxDBClientError, InfluxDBServerError):
-        logging.exception('Can not obtain series info.')
-        raise SystemError
-
-    # for item in qry_ans:
-    #     key = item[0].get('filename')
-    #     value = {'symbol':(x[0].get('symbol'),
-    #              'provider'
-    #                        }
-
 
 
 def db_server_info():
@@ -110,31 +80,22 @@ def db_server_info():
     client.close()
 
 
-def series_info_count(measurement, series):
-    """Return count information about one series in a measurement.
+def influx_qry(cql, client_type='client', user_type='reader'):
+    """Generic database query
 
-    :param measurement:
-    :param series:
+    :param cql:
+    :param client_type:
+    :param user_type:
     :return:
     """
-
-    cql = "SELECT COUNT(*) " \
-          "FROM \"{}\" " \
-          "WHERE symbol=\'{}\' AND " \
-          "provider=\'{}\'".format(measurement,
-                                   series[0],
-                                   series[1])
-
     try:
-        logging.info("Querying %s at %s", series, measurement)
-        client = influx_client(user_type='reader')
-        response = client.query(query=cql)
+        client = influx_client(client_type=client_type, user_type=user_type)
+        response = client.query(cql)
         client.close()
-    except (InfluxDBClientError, InfluxDBClientError):
-        logging.exception('Can not obtain series info.')
-        sys.exit(-1)
+    except (InfluxDBServerError, InfluxDBClientError):
+        logging.exception('Can not query the database')
+        raise SystemError
 
-    datapoint = next(response.get_points())
-    del datapoint['time']
-    return datapoint
+    return response
+
 

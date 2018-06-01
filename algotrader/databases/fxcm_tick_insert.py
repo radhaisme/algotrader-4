@@ -22,7 +22,6 @@ from data_acquisition.fxmc import in_store
 from databases.influx_manager import influx_client
 from log.log_settings import setup_logging
 
-
 def series_by_filename(tag, clean_store_dirpath):
     """Returns dictionary with path for files already in database, as defined
     as filename tag present.
@@ -94,13 +93,15 @@ def series_by_filename_row(table, clean_store_dirpath, abs_tolerance=10):
         # compare the two results
         difference = abs(row_count_db - row_count_csv)
         if difference <= abs_tolerance:
-            logger.info('%s already in database with %d data points and %d '
-                        'difference',
-                        each_filename, row_count_db, difference)
+            logger.info('{} already in database with {} data points and {} '
+                        'difference'.format(each_filename,
+                                            row_count_db,
+                                            difference))
             ans[each_filename] = each_path
         else:
-            logger.warning('Incomplete series %s deleted, difference %d',
-                           each_filename, difference)
+            logger.warning('Incomplete series {} deleted, '
+                           'difference {}'.format(each_filename,
+                                                  difference))
             # if difference is greater the series is incomplete, something
             # went wrong. Delete it !
             delete_series(tags={'filename': each_filename})
@@ -131,7 +132,7 @@ def prepare_for_securities_master(file_path):
 
     file_path = pathlib.Path(file_path)
     filename = file_path.parts[-1][:-7]
-    logger.info('Preparing CSV file: %s', filename)
+    logger.info('Preparing CSV file: {}'.format(filename))
     try:
         df = pd.read_csv(filepath_or_buffer=file_path,
                          compression='gzip',
@@ -144,10 +145,10 @@ def prepare_for_securities_master(file_path):
                          float_precision='high',
                          engine='c')
     except OSError:
-        logger.exception('Error reading file %s,', filename)
+        logger.exception('Error reading file {}'.format(filename))
         raise SystemError
 
-    logger.info('File: %s ready for insert', filename)
+    logger.info('File: {} ready for insert'.format(filename))
     return df
 
 
@@ -176,7 +177,7 @@ def writer(data, tags, into_table):
     """
     protocol = 'json'
     field_columns = ['bid', 'ask']
-    logger.info('Insert data for: %s', tags['filename'])
+    logger.info('Insert data for: {}'.format(tags['filename']))
     try:
         client = influx_client(client_type='dataframe', user_type='writer')
 
@@ -189,9 +190,9 @@ def writer(data, tags, into_table):
                             numeric_precision='full',
                             batch_size=10000)
         client.close()
-        logger.info('Data insert OK for %s', tags['filename'])
+        logger.info('Data insert OK for {}'.format(tags['filename']))
     except (InfluxDBServerError, InfluxDBClientError):
-        logger.exception('Error data insert - %s', tags['filename'])
+        logger.exception('Error data insert - {}'.format(tags['filename']))
         raise SystemError
 
 
@@ -209,13 +210,16 @@ def insert_validation(filepath, table, tags, abs_tolerance=10):
     cql = 'SELECT COUNT(bid) FROM {} ' \
           'WHERE filename=\'{}\' ' \
           'AND symbol=\'{}\' ' \
-          'AND provider=\'{}\''.format(table, filename, symbol, provider)
+          'AND provider=\'{}\''.format(table,
+                                       filename,
+                                       symbol,
+                                       provider)
 
     try:
         rows_in_db = client.query(query=cql)[table]['count'].iloc[0]
         client.close()
     except KeyError:
-        logger.info('Data from %s not in database', filename)
+        logger.info('Data from {} not in database'.format(filename))
         return {'value': 'Not in DB', 'csv': row_count,
                 'sec_master': 0, 'diff': row_count}
 
@@ -227,7 +231,8 @@ def insert_validation(filepath, table, tags, abs_tolerance=10):
     else:
         ans = 'Acceptable'
 
-    logger.info('Validation %s difference of %d', ans, difference)
+    logger.info('Validation {} difference of {}'.format(ans,
+                                                        difference))
     return {'value': ans, 'csv': row_count,
             'sec_master': rows_in_db, 'diff': difference}
 
@@ -243,7 +248,7 @@ def delete_series(tags):
         client.delete_series(tags=tags)
         client.close()
     except (InfluxDBClientError, InfluxDBServerError):
-        logger.exception('Could not delete series %s', tags['filename'])
+        logger.exception('Could not delete series {}'.format(tags['filename']))
 
 
 def get_files_to_load(dir_path, table, overwrite, validation_type='fast'):
@@ -283,8 +288,8 @@ def get_files_to_load(dir_path, table, overwrite, validation_type='fast'):
         else:
             last_insert = None
 
-        logger.info('%d files already loaded into database',
-                    len(already_in_db))
+        logger.info('{} files already loaded '
+                    'into database'.format(len(already_in_db)))
 
         for _key, value in already_in_db.items():
             filepath = pathlib.Path(value)
@@ -292,7 +297,7 @@ def get_files_to_load(dir_path, table, overwrite, validation_type='fast'):
                 all_possible_files.remove(filepath)
         files = all_possible_files
 
-    logger.info('%s files for insert', len(all_possible_files))
+    logger.info('{} files for insert'.format(len(all_possible_files)))
     return files
 
 
@@ -314,7 +319,7 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False,
         tags = {'symbol': symbol,
                 'provider': provider,
                 'filename': filename}
-        logger.info('Working on %s', filename)
+        logger.info('Working on {}'.format(filename))
 
         # Validate if data already is in securities master database.
         # Number of data points in CSV must be similar (+/- tolerance)
@@ -343,20 +348,22 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False,
             # Post validation of inserted data
             if post_validation['value'] == 'Exact' or \
                     post_validation['value'] == 'Acceptable':
-                logger.info('Successful insert for %s: %d '
-                            'data points with %d difference',
-                            filename,
-                            post_validation['sec_master'],
-                            post_validation['diff'])
+                logger.info('Successful insert for {}: {} '
+                            'data points with {} '
+                            'difference'.format(filename,
+                                                post_validation['sec_master'],
+                                                post_validation['diff']))
             else:
-                logger.error('Error insert for %s: %s '
-                             'difference', filename, post_validation['diff'])
+                logger.error('Error insert for {}: {} '
+                             'difference'.format(filename,
+                                                 post_validation['diff']))
 
         else:
-            logger.info('Data for %s already in database:'
-                        ' %d data points with %d difference', filename,
-                        pre_validation['sec_master'],
-                        pre_validation['diff'])
+            logger.info('Data for {} already in database:'
+                        ' {} data points with {} '
+                        'difference'.format(filename,
+                                            pre_validation['sec_master'],
+                                            pre_validation['diff']))
 
     logger.info('All data files processed!')
 
@@ -370,8 +377,8 @@ def multiple_file_insert():
 
     time0 = datetime.datetime.now()
 
-    logger.info('#'*90)
-    logger.info('#'*27 + ' START LOADING MULTIPLE TICK FILES ' + '#'*28)
+    logger.info('#' * 90)
+    logger.info('#' * 27 + ' START LOADING MULTIPLE TICK FILES ' + '#' * 28)
     logger.info('#' * 90)
 
     load_multiple_tick_files(dir_path=store,
@@ -380,28 +387,7 @@ def multiple_file_insert():
                              overwrite=False,
                              validation_type='fast')
     time1 = datetime.datetime.now()
-    logger.info('TOTAL RUNNING TIME WAS: %s', (time1 - time0))
-
-
-def insert_one_series():
-    """
-
-    :return:
-    """
-    tags = {'filename': 'GBPUSD_2016_23',
-            'provider': 'fxcm',
-            'symbol': 'GBPUSD'}
-
-    filepath = pathlib.Path(
-        '/media/javier/My Passport/Trading/data/clean_fxcm'
-        '/LOADED/GBPUSD/2016/GBPUSD_2016_23.csv.gz')
-
-    # deletes series with same tags if already in database
-    delete_series(tags=tags)
-    # turn the CSV into a dataframe ready for insert
-    data = prepare_for_securities_master(file_path=filepath)
-    # insert the data to sec master database
-    writer(data=data, tags=tags, into_table='fx_ticks')
+    logger.info('TOTAL RUNNING TIME WAS: {}'.format(time1 - time0))
 
 
 if __name__ == '__main__':
