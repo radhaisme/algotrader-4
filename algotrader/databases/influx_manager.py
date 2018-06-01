@@ -82,8 +82,7 @@ def db_server_info():
     client.close()
 
 
-def influx_qry(cql, client_type='client', user_type='reader',
-               error_return=False):
+def influx_qry(cql, client_type='client', user_type='reader'):
     """Generic database query
 
     """
@@ -92,12 +91,44 @@ def influx_qry(cql, client_type='client', user_type='reader',
         response = client.query(cql)
         client.close()
     except (InfluxDBServerError, InfluxDBClientError):
-        if error_return:
-            response = False
-        else:
-            logging.exception('Can not query the database')
-            raise SystemError
+        logging.exception('Can not query the database')
+        raise SystemError
 
     return response
 
 
+def influx_writer(data, field_columns, tags, into_table):
+    """Generic database writer
+
+    """
+    logging.info('Insert data for: {}'.format(tags['filename']))
+
+    protocol = 'json'
+    try:
+        client = influx_client(client_type='dataframe', user_type='writer')
+        client.write_points(dataframe=data,
+                            measurement=into_table,
+                            protocol=protocol,
+                            field_columns=field_columns,
+                            tags=tags,
+                            time_precision='u',
+                            numeric_precision='full',
+                            batch_size=10000)
+        client.close()
+        logging.info('Data insert OK for {}'.format(tags['filename']))
+    except (InfluxDBServerError, InfluxDBClientError):
+        logging.exception('Error data insert - {}'.format(tags['filename']))
+        raise SystemError
+
+
+def delete_series(tags):
+    """Deletes series in current database
+
+    """
+
+    try:
+        client = influx_client(client_type='client', user_type='writer')
+        client.delete_series(tags=tags)
+        client.close()
+    except (InfluxDBClientError, InfluxDBServerError):
+        logging.exception('Could not delete series {}'.format(tags))

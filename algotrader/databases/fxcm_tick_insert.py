@@ -14,12 +14,11 @@ from collections import OrderedDict
 from gzip import open as opengz
 
 import pandas as pd
-from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from pytz import utc
 
+import databases.influx_manager as db_man
 from common.settings import ATSett
 from data_acquisition.fxmc import in_store
-from databases.influx_manager import influx_qry, influx_client
 from log.log_settings import setup_logging
 
 
@@ -35,7 +34,7 @@ def series_by_filename(tag, clean_store_dirpath):
     cql = 'SHOW TAG VALUES ON \"{}\" ' \
           'WITH KEY=\"{}\"'.format(database,
                                    tag)
-    cql_response = influx_qry(cql).items()
+    cql_response = db_man.influx_qry(cql).items()
 
     if cql_response:
         response = cql_response[0][1]
@@ -74,7 +73,7 @@ def series_by_filename_row(table, clean_store_dirpath, abs_tolerance=10):
               'FROM {} ' \
               'WHERE filename=\'{}\''.format(table,
                                              each_filename)
-        cql_response = influx_qry(cql).items()
+        cql_response = db_man.influx_qry(cql).items()
 
         row_count_db = next(cql_response[0][1])['count']
         # get row count in csv
@@ -95,7 +94,7 @@ def series_by_filename_row(table, clean_store_dirpath, abs_tolerance=10):
                                                   difference))
             # if difference is greater the series is incomplete, something
             # went wrong. Delete it !
-            delete_series(tags={'filename': each_filename})
+            db_man.delete_series(tags={'filename': each_filename})
 
     return ans
 
@@ -159,37 +158,10 @@ def my_date_parser(date_string):
                              tzinfo=utc)
 
 
-def writer(data, tags, into_table):
-    """Insert tick data into securities master database.
-    :param data:
-    :param tags:
-    :param into_table:
-    :return:
-    """
-    protocol = 'json'
-    field_columns = ['bid', 'ask']
-    logger.info('Insert data for: {}'.format(tags['filename']))
-    try:
-        client = influx_client(client_type='dataframe', user_type='writer')
-        client.write_points(dataframe=data,
-                            measurement=into_table,
-                            protocol=protocol,
-                            field_columns=field_columns,
-                            tags=tags,
-                            time_precision='u',
-                            numeric_precision='full',
-                            batch_size=10000)
-        client.close()
-        logger.info('Data insert OK for {}'.format(tags['filename']))
-    except (InfluxDBServerError, InfluxDBClientError):
-        logger.exception('Error data insert - {}'.format(tags['filename']))
-        raise SystemError
-
-
 def insert_validation(filepath, table, tags, abs_tolerance=10):
     """Validate number of rows: CSV vs Database
     """
-    client = influx_client(client_type='dataframe', user_type='reader')
+    client = db_man.influx_client(client_type='dataframe', user_type='reader')
 
     filename = tags['filename']
     symbol = tags['symbol']
@@ -220,24 +192,9 @@ def insert_validation(filepath, table, tags, abs_tolerance=10):
     else:
         ans = 'Acceptable'
 
-    logger.info('Validation {} difference of {}'.format(ans,
-                                                        difference))
+    logger.info('Validation {} difference of {}'.format(ans, difference))
     return {'value': ans, 'csv': row_count,
             'sec_master': rows_in_db, 'diff': difference}
-
-
-def delete_series(tags):
-    """Deletes series in current database
-    :param tags:
-    :return:
-    """
-
-    try:
-        client = influx_client(client_type='client', user_type='writer')
-        client.delete_series(tags=tags)
-        client.close()
-    except (InfluxDBClientError, InfluxDBServerError):
-        logger.exception('Could not delete series {}'.format(tags['filename']))
 
 
 def get_files_to_load(dir_path, table, overwrite, validation_type='fast'):
@@ -273,7 +230,7 @@ def get_files_to_load(dir_path, table, overwrite, validation_type='fast'):
         # the last series could be incomplete.
         if already_in_db:
             last_insert = list(already_in_db.keys())[-1]
-            delete_series(tags={'filename': last_insert})
+            db_man.delete_series(tags={'filename': last_insert})
             del already_in_db[last_insert]
         else:
             last_insert = None
@@ -298,8 +255,10 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False,
     Files must math REGEX: "^[A-Z]{6}_20\\d{1,2}_\\d{1,2}.csv.gz"
     """
 
-    files = get_files_to_load(dir_path=dir_path, overwrite=overwrite,
-                              validation_type=validation_type, table=into_table)
+    files = get_files_to_load(dir_path=dir_path,
+                              overwrite=overwrite,
+                              validation_type=validation_type,
+                              table=into_table)
 
     # Loop each file in directory
     for each_file in files:
@@ -321,11 +280,15 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False,
         if pre_validation['value'] == 'Not Acceptable' or \
                 pre_validation['value'] == 'Not in DB':
             # deletes series with same tags if already in database
-            delete_series(tags=tags)
+            db_man.delete_series(tags=tags)
             # turn the CSV into a dataframe ready for insert
             data = prepare_for_securities_master(file_path=each_file)
+
             # insert the data to sec master database
-            writer(data=data, tags=tags, into_table=into_table)
+            db_man.influx_writer(data=data,
+                                 tags=tags,
+                                 into_table=into_table,
+                                 field_columns=['bid', 'ask'])
 
             # Performance post insert validation that data is ok in database
             # Influx has some trouble with the milliseconds and sometimes
@@ -338,7 +301,8 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False,
             # Post validation of inserted data
             if post_validation['value'] == 'Exact' or \
                     post_validation['value'] == 'Acceptable':
-                logger.info('Successful insert for {}: {} '
+                logger.info('Successful insert '
+                            'for {}: {} '
                             'data points with {} '
                             'difference'.format(filename,
                                                 post_validation['sec_master'],
@@ -359,12 +323,11 @@ def load_multiple_tick_files(dir_path, provider, into_table, overwrite=False,
 
 
 def multiple_file_insert():
-    """
+    """Main function for data insert of multiple files.
 
     :return:
     """
     store = pathlib.Path(ATSett().store_clean_fxcm())
-
     time0 = datetime.datetime.now()
 
     logger.info('#' * 90)
