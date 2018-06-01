@@ -56,7 +56,7 @@ class UTCFormatter(Formatter):
 def log_test():
     x = 1
     print(x)
-    logger.info('Var: %s', x)
+    logger.info('Var: {}'.format(x))
     return x
 
 
