@@ -19,8 +19,9 @@ from pytz import utc
 
 from common.settings import ATSett
 from data_acquisition.fxmc import in_store
-from databases.influx_manager import influx_client
+from databases.influx_manager import influx_qry, influx_client
 from log.log_settings import setup_logging
+
 
 def series_by_filename(tag, clean_store_dirpath):
     """Returns dictionary with path for files already in database, as defined
@@ -34,13 +35,7 @@ def series_by_filename(tag, clean_store_dirpath):
     cql = 'SHOW TAG VALUES ON \"{}\" ' \
           'WITH KEY=\"{}\"'.format(database,
                                    tag)
-    try:
-        client = influx_client(client_type='client', user_type='reader')
-        cql_response = client.query(cql).items()
-        client.close()
-    except InfluxDBClientError:
-        logger.exception('Could not query series in table')
-        raise SystemError
+    cql_response = influx_qry(cql).items()
 
     if cql_response:
         response = cql_response[0][1]
@@ -79,15 +74,11 @@ def series_by_filename_row(table, clean_store_dirpath, abs_tolerance=10):
               'FROM {} ' \
               'WHERE filename=\'{}\''.format(table,
                                              each_filename)
-        try:
-            client = influx_client(client_type='client', user_type='reader')
-            cql_response = client.query(cql).items()
-            client.close()
-        except InfluxDBClientError:
-            logger.exception('Could not query series in table')
-            raise SystemError
+        cql_response = influx_qry(cql).items()
+
         row_count_db = next(cql_response[0][1])['count']
         # get row count in csv
+
         row_count_csv = sum(1 for _r in opengz(each_path, 'r')) - 1
 
         # compare the two results
@@ -180,7 +171,6 @@ def writer(data, tags, into_table):
     logger.info('Insert data for: {}'.format(tags['filename']))
     try:
         client = influx_client(client_type='dataframe', user_type='writer')
-
         client.write_points(dataframe=data,
                             measurement=into_table,
                             protocol=protocol,
@@ -198,7 +188,6 @@ def writer(data, tags, into_table):
 
 def insert_validation(filepath, table, tags, abs_tolerance=10):
     """Validate number of rows: CSV vs Database
-
     """
     client = influx_client(client_type='dataframe', user_type='reader')
 
@@ -264,6 +253,7 @@ def get_files_to_load(dir_path, table, overwrite, validation_type='fast'):
     dir_path = pathlib.Path(dir_path)
     logger.info('Constructing list of files to insert')
     all_possible_files = in_store(dir_path)
+    already_in_db = []
 
     if overwrite:
         files = all_possible_files

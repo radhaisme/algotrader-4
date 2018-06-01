@@ -29,15 +29,17 @@ def influx_client(client_type='client', user_type='reader'):
     password = config['password_' + user_type]
     dbname = config['database']
 
+    client = None
     try:
         if client_type == 'client':
             client = InfluxDBClient(host, port, user, password, dbname)
         elif client_type == 'dataframe':
             client = DataFrameClient(host, port, user, password, dbname)
-        return client
+
     except (InfluxDBServerError, InfluxDBClientError, KeyError):
         logging.exception('Can not connect to database Influxdb.')
         raise SystemError
+    return client
 
 
 def db_server_info():
@@ -80,21 +82,21 @@ def db_server_info():
     client.close()
 
 
-def influx_qry(cql, client_type='client', user_type='reader'):
+def influx_qry(cql, client_type='client', user_type='reader',
+               error_return=False):
     """Generic database query
 
-    :param cql:
-    :param client_type:
-    :param user_type:
-    :return:
     """
     try:
         client = influx_client(client_type=client_type, user_type=user_type)
         response = client.query(cql)
         client.close()
     except (InfluxDBServerError, InfluxDBClientError):
-        logging.exception('Can not query the database')
-        raise SystemError
+        if error_return:
+            response = False
+        else:
+            logging.exception('Can not query the database')
+            raise SystemError
 
     return response
 
