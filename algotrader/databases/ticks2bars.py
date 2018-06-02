@@ -279,6 +279,7 @@ def date_comparison(input_series, output_series):
                'last': last_input}
     return ans
 
+
 def load_all_series(input_table, output_table, freq):
     """ Load all series of a table and call resampling
 
