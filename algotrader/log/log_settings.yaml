@@ -1,6 +1,6 @@
 disable_existing_loggers: false
 formatters:
-  simple: {format: '%(asctime)s  %(levelname)-6s %(message)-120s %(name)s.%(funcName)s',
+  simple: {format: '%(asctime)s UTC   %(levelname)-9s %(message)-130s %(name)s.%(funcName)s',
            (): 'ext://log.log_settings.UTCFormatter',
            datefmt: '%Y-%m-%d %H:%M:%S'}
 handlers:

@@ -3,11 +3,10 @@
 Converts ticks to bars
 """
 import datetime
-import logging
 import itertools
+import logging
 
 import pandas as pd
-from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
 import databases.influx_manager as db_man
 from common.utilities import iter_islast
@@ -95,6 +94,8 @@ def get_series_info(table):
 
     :return: list of dictionaries
     """
+    logger.info('Querying series info in table \'{}\''.format(table))
+
     # get series by symbols - provider tags - frequency (if bars)
     cql = 'SHOW TAG VALUES ON ' \
           '"securities_master" FROM "{}" ' \
@@ -138,8 +139,8 @@ def get_series_info(table):
         # add time bounds for each series
         bounds = time_bounds(table, tags=tag_product)
 
-        each_ans['first_time'] = bounds['first']
-        each_ans['last_time'] = bounds['last']
+        each_ans['first'] = bounds['first']
+        each_ans['last'] = bounds['last']
         each_ans['provider'] = tag_product['provider']
         each_ans['symbol'] = tag_product['symbol']
         each_ans['frequency'] = tag_product['frequency']
@@ -150,11 +151,11 @@ def get_series_info(table):
     return ans
 
 
-def ticks_to_bars(ticks, frequency='1min'):
+def ticks_to_bars(ticks, freq):
     """Re sample ticks [timestamp bid, ask) to bars OHLC of selected frequency
     https://stackoverflow.com/a/17001474/3512107
     :param ticks:
-    :param frequency:
+    :param freq:
     https://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
                     Alias	Description
                     B	business day frequency
@@ -188,7 +189,7 @@ def ticks_to_bars(ticks, frequency='1min'):
     ticks['mid'] = ticks.mean(axis=1)
     ticks.drop(['bid', 'ask'], axis=1, inplace=True)
 
-    bars = ticks.resample(rule=frequency, level=0).ohlc()
+    bars = ticks.resample(rule=freq, level=0).ohlc()
 
     # Drop N/A. When there are no tick, do not create a bar
     bars.dropna(inplace=True)
@@ -199,100 +200,86 @@ def ticks_to_bars(ticks, frequency='1min'):
     return bars
 
 
-def insert_bars_to_sec_master(client, bars, table_prefix, frequency, symbol,
-                              provider):
-    """Performs data insertion of bar data to securities master database
-
-    :param client: influx database client object
-    :param bars: DF with the OHLC data
-    :param table_prefix: str to name the output table
-    :param frequency: bars frequency
-    :param symbol: symbol identification
-    :param provider: data provider identification
-    :return: None
-    """
-    tags = {'provider': provider,
-            'symbol': symbol,
-            'frequency': frequency}
-    field_columns = ['open', 'high', 'low', 'close']
-    protocol = 'json'
-
-    # construct table (measurement) name as give prefix + frequency indicator
-    table_name = '{}_{}'.format(table_prefix, frequency)
-
-    try:
-        # Insert in database
-        client.write_points(dataframe=bars,
-                            measurement=table_name,
-                            tags=tags,
-                            time_precision='ms',
-                            protocol=protocol,
-                            numeric_precision='full',
-                            field_columns=field_columns)
-    except (InfluxDBClientError, InfluxDBServerError):
-        logger.exception('Error inserting data for %s at &s', tags, table_name)
-        raise SystemError
-
-
-def tick_resampling(input_table, output_tabl, tags, custom_dates=False,
-                    start_datetime=None, end_datetime=None, ):
+def tick_resampling(input_table, output_table, tags, start_datetime,
+                    end_datetime):
     """Re sample tick data in securities master to desired frequency
 
-    :param symbol:
-    :param provider:
-    :param input_table:
-    :param output_table_prefix:
-    :param custom_dates:
-    :param start_time:
-    :param end_time:
-    :param frequency:
-    :return:
     """
-
-    # Define the bounds
-    if custom_dates:
-        # We use the given dates as bounds
-        start_time = pd.to_datetime(start_datetime)
-        end_time = pd.to_datetime(end_datetime)
-    else:
-        # We find the bounds of the series in the database fx-tick
-        bounds = time_bounds(table=input_table, symbol=symbol,
-                             provider=provider)
-        start_time = bounds['FIRST']
-        end_time = bounds['LAST']
-
-
     # Define the time extension of each query.
     # The bigger the number, more RAM needed.
     delta = datetime.timedelta(hours=24)
 
-    while start_time <= end_time:
-        partial_end = start_time + delta
+    # Construct the intervals to obtain the data in chunks
+    chuncks = []
+    init_dt = start_datetime
+    while init_dt < end_datetime:
+
+        end_dt = init_dt + delta
+        chuncks.append((init_dt, end_dt))
+
+        init_dt = end_dt
+
+    # works with each query: re sampling and insert
+    for each_chunck in chuncks:
+        logger.info('Re sampling {} from {} delta {}'.format(tags.values(),
+                                                             each_chunck[0],
+                                                             delta))
         cql = 'SELECT time, bid, ask FROM {} ' \
               'WHERE symbol=\'{}\' ' \
               'AND provider=\'{}\' ' \
               'AND time>=\'{}\' ' \
-              'AND time<\'{}\''.format(input_table, symbol, provider,
-                                       start_time, partial_end)
+              'AND time<\'{}\''.format(input_table,
+                                       tags['symbol'],
+                                       tags['provider'],
+                                       each_chunck[0],
+                                       each_chunck[1])
 
-        try:
-            # Get the ticks requested
-            ticks = db_man.influx_qry(cql)[input_table]
+        # Get the ticks requested
+        response = db_man.influx_qry(client_type='dataframe', cql=cql)
+
+        # check for the weekends --no data--
+        if not response:
+            logger.warning('No data for {} at {}'.format(tags.values(),
+                                                         each_chunck[0]))
+        else:
+            ticks = response[input_table]
+
             # Call the re sampling function
-            bars = ticks_to_bars(ticks)
+            bars = ticks_to_bars(ticks=ticks, freq=tags['frequency'])
+
             # Insert into securities master database
-            insert_bars_to_sec_master(client, bars, output_table_prefix,
-                                      frequency, symbol, provider)
-            logger.info('Data for %s from %s to %s OK!', symbol,
-                        start_time, end_time )
-        except (KeyError, InfluxDBClientError):
-            logger.warning('No data for %s from %s to %s', symbol,
-                           start_time, end_time)
-        start_time = partial_end
-    client.close()
+            field_keys = ['open', 'high', 'low', 'close']
+
+            db_man.influx_writer(data=bars,
+                                 field_columns=field_keys,
+                                 tags=tags,
+                                 into_table=output_table)
 
 
-def load_all_series(input_table, output_table, freq, overwrite):
+def date_comparison(input_series, output_series):
+    """ Compare the start and end dates for the input and output series and
+    obtain the dates that completes the output series
+
+    :param input_series:
+    :param output_series:
+    :return:
+    """
+    first_input = input_series['first']
+    last_input = input_series['last']
+    first_output = output_series['first']
+    last_output = output_series['last']
+
+    # if output series is not left aligned, something happened and the series
+    #  must be re insert
+    if first_input != first_output:
+        ans = {'first': first_input,
+               'last': last_input}
+    else:
+        ans = {'first': last_output,
+               'last': last_input}
+    return ans
+
+def load_all_series(input_table, output_table, freq):
     """ Load all series of a table and call resampling
 
     """
@@ -302,40 +289,56 @@ def load_all_series(input_table, output_table, freq, overwrite):
     # What series are in the bars table
     bar_series = get_series_info(output_table)
 
-    for each_series in tick_series:
+    for each_tick_series in tick_series:
+        tick_symbol = each_tick_series['symbol']
+        tick_provider = each_tick_series['provider']
 
-        tick_resampling(output_table_prefix='fx',
-                        tags=tags_in_bar_series,
+        start_datetime = each_tick_series['first']
+        end_datetime = each_tick_series['last']
+
+        # Get the dates for resampling function
+        for each_bar_series in bar_series:
+            bar__symbol = each_bar_series['symbol']
+            bar__provider = each_bar_series['provider']
+            # find id tick series are in bars
+            if tick_symbol == bar__symbol and tick_provider == bar__provider:
+                # check the date in the two series ticks vs bars
+                cross_dates = date_comparison(input_series=each_tick_series,
+                                              output_series=each_bar_series)
+                start_datetime = cross_dates['first']
+                end_datetime = cross_dates['last']
+            else:
+                start_datetime = each_tick_series['first']
+                end_datetime = each_tick_series['last']
+
+        # Get the tags for the new series
+        tags4bar = {'provider': tick_provider,
+                    'symbol': tick_symbol,
+                    'frequency': freq}
+
+        # Do the re sampling
+        tick_resampling(output_table=output_table,
                         input_table=input_table,
-                        custom_dates=custom_dates,
-                        start_datetime=start_datetime)
-
+                        tags=tags4bar,
+                        start_datetime=start_datetime,
+                        end_datetime=end_datetime)
 
     logger.info('Insert all series finished.')
 
 
 def main():
-    time0 = datetime.datetime.now()
-
+    """ Call for running all.
+    """
     log_title("START LOADING MULTIPLE BAR SERIES")
-
     load_all_series(input_table='fx_ticks',
                     output_table='bars',
-                    freq='1min',
-                    overwrite=False)
+                    freq='1min')
+    logger.info('ticks to bars end running.')
 
-    # tick_resampling(symbol='AUDCAD',
-    #                 provider='fxcm',
-    #                 input_table='fx_ticks',
-    #                 custom_dates=False,
-    #                 output_table_prefix='fx')
-
-    time1 = datetime.datetime.now()
-    logger.info('TOTAL RUNNING TIME WAS: {}'.format(time1 - time0))
 
 if __name__ == '__main__':
     setup_logging()
 
-    logger = logging.getLogger('tick_resampling')
+    logger = logging.getLogger('tick2bars')
 
     main()
