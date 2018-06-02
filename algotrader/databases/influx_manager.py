@@ -101,8 +101,8 @@ def influx_writer(data, field_columns, tags, into_table):
     """Generic database writer
 
     """
-    logging.info('Insert data for: {}'.format(tags['filename']))
-
+    logging.info('Insert {} into table \'{}\''.format(tags.values(),
+                                                      into_table))
     protocol = 'json'
     try:
         client = influx_client(client_type='dataframe', user_type='writer')
@@ -115,9 +115,9 @@ def influx_writer(data, field_columns, tags, into_table):
                             numeric_precision='full',
                             batch_size=10000)
         client.close()
-        logging.info('Data insert OK for {}'.format(tags['filename']))
+        logging.info('Data insert OK!')
     except (InfluxDBServerError, InfluxDBClientError):
-        logging.exception('Error data insert - {}'.format(tags['filename']))
+        logging.exception('Error data insert - {}'.format(tags.values()))
         raise SystemError
 
 
