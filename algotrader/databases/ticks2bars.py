@@ -134,19 +134,18 @@ def get_series_info(table):
 
     ans = []
     for tag_product in product_series_tags:
-        each_ans = dict()
-
         # add time bounds for each series
         bounds = time_bounds(table, tags=tag_product)
 
-        each_ans['first'] = bounds['first']
-        each_ans['last'] = bounds['last']
-        each_ans['provider'] = tag_product['provider']
-        each_ans['symbol'] = tag_product['symbol']
-        each_ans['frequency'] = tag_product['frequency']
+        ids = {'provider': tag_product['provider'],
+               'symbol': tag_product['symbol']}
+        data = {'first': bounds['first'],
+                'last': bounds['last'],
+                'frequency': tag_product['frequency']}
 
         # construct answer list of dictionaries
-        ans.append(each_ans)
+        ans.append({'id': ids,
+                    'data': data})
 
     return ans
 
@@ -221,9 +220,7 @@ def tick_resampling(input_table, output_table, tags, start_datetime,
 
     # works with each query: re sampling and insert
     for each_chunck in chuncks:
-        logger.info('Re sampling {} from {} delta {}'.format(tags.values(),
-                                                             each_chunck[0],
-                                                             delta))
+
         cql = 'SELECT time, bid, ask FROM {} ' \
               'WHERE symbol=\'{}\' ' \
               'AND provider=\'{}\' ' \
@@ -242,6 +239,9 @@ def tick_resampling(input_table, output_table, tags, start_datetime,
             logger.warning('No data for {} at {}'.format(tags.values(),
                                                          each_chunck[0]))
         else:
+            logger.info('Re sampling {} from {} delta {}'.format(tags.values(),
+                                                                 each_chunck[0],
+                                                                 delta))
             ticks = response[input_table]
 
             # Call the re sampling function
@@ -264,10 +264,10 @@ def date_comparison(input_series, output_series):
     :param output_series:
     :return:
     """
-    first_input = input_series['first']
-    last_input = input_series['last']
-    first_output = output_series['first']
-    last_output = output_series['last']
+    first_input = input_series['data']['first']
+    last_input = input_series['data']['last']
+    first_output = output_series['data']['first']
+    last_output = output_series['data']['last']
 
     # if output series is not left aligned, something happened and the series
     #  must be re insert
@@ -290,39 +290,49 @@ def load_all_series(input_table, output_table, freq):
     # What series are in the bars table
     bar_series = get_series_info(output_table)
 
+    # sub set of bar_series, share same order
+    bar_ids = [x['id'] for x in bar_series]
+
     for each_tick_series in tick_series:
-        tick_symbol = each_tick_series['symbol']
-        tick_provider = each_tick_series['provider']
+        # Compare them
+        if each_tick_series['id'] in bar_ids:
+            # position of bar series
+            idx = bar_ids.index(each_tick_series['id'])
+            # check the date in the two series ticks vs bars
+            cross_dates = date_comparison(input_series=each_tick_series,
+                                          output_series=bar_series[idx])
+            start_datetime = cross_dates['first']
+            end_datetime = cross_dates['last']
 
-        start_datetime = each_tick_series['first']
-        end_datetime = each_tick_series['last']
-
-        # Get the dates for resampling function
-        for each_bar_series in bar_series:
-            bar__symbol = each_bar_series['symbol']
-            bar__provider = each_bar_series['provider']
-            # find id tick series are in bars
-            if tick_symbol == bar__symbol and tick_provider == bar__provider:
-                # check the date in the two series ticks vs bars
-                cross_dates = date_comparison(input_series=each_tick_series,
-                                              output_series=each_bar_series)
-                start_datetime = cross_dates['first']
-                end_datetime = cross_dates['last']
+            # The whole series already in database
+            if start_datetime == end_datetime:
+                logger.info('Bars for {} already in database.'.format(
+                    bar_ids[idx]))
+                do_resampling = False
             else:
-                start_datetime = each_tick_series['first']
-                end_datetime = each_tick_series['last']
+                do_resampling = True
 
-        # Get the tags for the new series
-        tags4bar = {'provider': tick_provider,
-                    'symbol': tick_symbol,
-                    'frequency': freq}
+        # no bars for those ticks, insert them all
+        else:
+            start_datetime = each_tick_series['data']['first']
+            end_datetime = each_tick_series['data']['last']
+            do_resampling = True
 
-        # Do the re sampling
-        tick_resampling(output_table=output_table,
-                        input_table=input_table,
-                        tags=tags4bar,
-                        start_datetime=start_datetime,
-                        end_datetime=end_datetime)
+        # proceed if authorized
+        if do_resampling:
+            tick_resampling(output_table=output_table,
+                            input_table=input_table,
+                            tags={'symbol': each_tick_series['id']['symbol'],
+                                  'provider': each_tick_series['id'][
+                                      'provider'],
+                                  'frequency': freq},
+                            start_datetime=start_datetime,
+                            end_datetime=end_datetime)
+
+
+
+
+
 
     logger.info('Insert all series finished.')
 
@@ -339,7 +349,6 @@ def main():
 
 if __name__ == '__main__':
     setup_logging()
-
     logger = logging.getLogger('tick2bars')
 
     main()
