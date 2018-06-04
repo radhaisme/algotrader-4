@@ -7,15 +7,16 @@ from events import TickEvent
 
 
 class HistoricFxTickPriceHandler:
-    """HistoricFxTickPriceHandler is designed to read the Securities Master Database
-    running on Influxdb and query for each requested symbol and time,
-    providing an interface to obtain the "latest" tick in a manner identical to a live
-    trading interface.
+    """HistoricFxTickPriceHandler is designed to read the Securities Master
+    Database running on Influxdb and query for each requested symbol and time,
+    providing an interface to obtain the "latest" tick in a manner identical
+    to a live trading interface.
 
     Works with FX symbols.
     """
 
-    def __init__(self, symbols_list, data_provider, start_time, end_time, events_queue):
+    def __init__(self, symbols_list, data_provider, start_time,
+                 end_time, events_queue):
 
         self.symbols_list = symbols_list
         self.data_provider = data_provider
@@ -27,7 +28,9 @@ class HistoricFxTickPriceHandler:
         self._tick_table = 'fx_ticks'
         self.symbol = {}
 
-        self. _database_query(self.symbols_list, self.start_time, self.end_time)
+        self. _database_query(self.symbols_list,
+                              self.start_time,
+                              self.end_time)
 
         self.tick_stream = self._get_streaming_ticks()
 
@@ -45,10 +48,11 @@ class HistoricFxTickPriceHandler:
         all_symbols = ''
         for each_symbol, islast in iter_islast(symbols_list):
             str_to_add = "symbol=\'{}\'".format(each_symbol)
-            if islast:
-                all_symbols += str_to_add
-            else:
-                all_symbols = all_symbols + str_to_add + ' OR '
+
+            all_symbols += str_to_add
+
+            if not islast:
+                all_symbols += ' OR '
 
         final_statement = "SELECT time, ask, bid, provider, symbol " \
                           "FROM \"{}\" " \
@@ -72,8 +76,12 @@ class HistoricFxTickPriceHandler:
         """
         try:
             client = influx_client(client_type='client', user_type='reader')
-            final_statement = self._query_constructor(symbols_list, s_time, e_time)
-            self._sec_master_data = client.query(query=final_statement, chunked=True, chunk_size=1000)
+            final_statement = self._query_constructor(symbols_list,
+                                                      s_time,
+                                                      e_time)
+            self._sec_master_data = client.query(query=final_statement,
+                                                 chunked=True,
+                                                 chunk_size=1000)
             client.close()
         except (InfluxDBClientError, InfluxDBServerError):
             logging.exception('Can not query securities master.')
@@ -125,7 +133,8 @@ class HistoricBarPriceHandler:
 
     """
 
-    def __init__(self, symbols_list, timeframe, data_provider, start_time, end_time, events_queue):
+    def __init__(self, symbols_list, timeframe, data_provider,
+                 start_time, end_time, events_queue):
         self.db_client = influx_client()
         self.symbols_list = symbols_list
         self.timeframe = timeframe
