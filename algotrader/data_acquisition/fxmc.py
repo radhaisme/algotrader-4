@@ -2,24 +2,25 @@
 This module import tick data provided for FXCM
 check: https://github.com/FXCMAPI/FXCMTickData
 """
-import gzip
-import pathlib
-import sys
 import datetime
-import requests
+import gzip
 import logging
+import pathlib
 import re
+import sys
+
 from time import sleep
+
+
+import requests
 from common.settings import ATSett
-from log.log_settings import setup_logging
+from log.log_settings import setup_logging, log_title
 
 # Available symbols from FXCM server.
 SYMBOLS = ['AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'CADCHF', 'EURAUD',
            'EURCHF', 'EURGBP', 'EURJPY', 'EURUSD', 'GBPCHF', 'GBPJPY',
            'GBPNZD', 'GBPUSD', 'NZDCAD', 'NZDCHF', 'NZDJPY', 'NZDUSD',
            'USDCAD', 'USDCHF', 'USDJPY']
-
-setts = ATSett()
 
 
 def in_store(store_path):
@@ -48,8 +49,8 @@ def all_possible_urls(end_date):
     :return:
     """
     # This is the base url and the file extension
-    url = setts.fxcm_data_path()
-    store_path = pathlib.Path(setts.store_originals_fxcm())
+    url = ATSett().fxcm_data_path()
+    store_path = pathlib.Path(ATSett().store_originals_fxcm())
     url_suffix = '.csv.gz'
 
     # Set the dates
@@ -86,9 +87,13 @@ def all_possible_urls(end_date):
             for wk in range(start_wk, end_wk):
                 data_folder = store_path / symbol / str(yr)
                 file_name = symbol + '_' + str(yr) + '_' + str(wk) + url_suffix
+                file_url = '{}/{}/{}/{}{}'.format(url,
+                                                  symbol,
+                                                  yr,
+                                                  wk,
+                                                  url_suffix)
 
-                url_in = {'url': ('{}/{}/{}/{}{}'.format(url, symbol, str(yr), str(wk),
-                                                         url_suffix)),
+                url_in = {'url': file_url,
                           'dir_path': data_folder,
                           'file_path': data_folder / file_name}
 
@@ -111,7 +116,7 @@ def definitive_urls(overwrite, end_date):
 
     if not overwrite:
         # What files are already in store
-        already_in_store = in_store(setts.store_originals_fxcm())
+        already_in_store = in_store(ATSett().store_originals_fxcm())
 
         for filepath in already_in_store:
             filename = filepath.parts[-1]
@@ -166,7 +171,7 @@ def get_files(urls):
                                  'status {}'.format(file_path,
                                                     r.status_code))
                 sys.exit(-1)
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             logger.exception('Error requesting: {}'.format(url))
             sys.exit(-1)
 
@@ -215,8 +220,7 @@ def clean_fxcm_originals(original_dirpath, clean_dirpath):
                     data.decode('utf-8').replace('\x00', '').encode('utf-8'))
 
             counter += 1
-            logger.info('Doing {} '
-                        'out of {} - '
+            logger.info('Doing {} out of {} - '
                         '{:.3%}'.format(counter,
                                         total_original_files,
                                         counter / total_original_files))
@@ -238,12 +242,13 @@ def update_all(final_date):
     :param final_date: date to run to
     :return: updated original and clean directories.
     """
+    log_title('Getting files from FXCM')
     urls = definitive_urls(overwrite=False,
                            end_date=final_date)
     get_files(urls)
 
-    clean_fxcm_originals(original_dirpath=setts.store_originals_fxcm(),
-                         clean_dirpath=setts.store_originals_fxcm())
+    clean_fxcm_originals(original_dirpath=ATSett().store_originals_fxcm(),
+                         clean_dirpath=ATSett().store_originals_fxcm())
 
 
 if __name__ == '__main__':
