@@ -7,7 +7,7 @@ import os
 import pathlib
 from functools import wraps
 from itertools import tee, islice, chain
-
+import time
 
 def rename_files(dir_path):
     """
@@ -119,5 +119,4 @@ def fn_timer(function):
         print("Total time running {}: {}".format(function.__name__, t1 - t0))
         return result
     return function_timer
-
 
