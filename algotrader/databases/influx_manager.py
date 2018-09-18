@@ -132,3 +132,7 @@ def delete_series(tags):
         client.close()
     except (InfluxDBClientError, InfluxDBServerError):
         logging.exception('Could not delete series {}'.format(tags))
+
+
+if __name__ == '__main__':
+    db_server_info()

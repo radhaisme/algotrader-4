@@ -30,7 +30,7 @@ def series_by_filename(tag, clean_store_dirpath):
     :param clean_store_dirpath: base path
     :return: {filename: filepath}
     """
-    database = 'securities_master'
+    database = 'sec_master'
     cql = 'SHOW TAG VALUES ON \"{}\" ' \
           'WITH KEY=\"{}\"'.format(database,
                                    tag)
@@ -343,5 +343,5 @@ def multiple_file_insert():
 
 if __name__ == '__main__':
     setup_logging()
-    logger = logging.getLogger('Fxcm data insert')
+    logger = logging.getLogger('fxcm data insert')
     multiple_file_insert()

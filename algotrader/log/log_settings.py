@@ -34,8 +34,8 @@ def update_conf_file():
     """Update the logging configuration file with the paths
     defined in the CONFIG file
     """
-    saving_path = pathlib.Path(setts.log_saving_path())
-    config_file = pathlib.Path(setts.log_configuration())
+    saving_path = pathlib.Path(sett.log_saving_path())
+    config_file = pathlib.Path(sett.log_configuration())
 
     with open(config_file) as my_file:
         doc = yaml.load(my_file)
@@ -81,7 +81,6 @@ def log_title(msg):
     logging.info(msg_line)
     logging.info(space_line)
     logging.info(complete_line)
-
 
 
 def log_test():

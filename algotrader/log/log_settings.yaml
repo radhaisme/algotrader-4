@@ -1,33 +1,41 @@
 disable_existing_loggers: false
 formatters:
-  simple: {format: '%(asctime)s UTC   %(levelname)-9s %(message)-130s %(name)s.%(funcName)s',
-           (): 'ext://log.log_settings.UTCFormatter',
-           datefmt: '%Y-%m-%d %H:%M:%S'}
+    simple:
+        format: '%(asctime)s UTC   %(levelname)-9s %(message)-130s %(name)s.%(funcName)s'
+        (): 'ext://log.log_settings.UTCFormatter'
+        datefmt: '%Y-%m-%d %H:%M:%S'
 handlers:
-  console: {class: logging.StreamHandler,
-            formatter: simple,
-            level: INFO,
-            stream: 'ext://sys.stdout'}
-  error_file_handler: {backupCount: 1,
-                       class: logging.handlers.RotatingFileHandler,
-                       encoding: utf8,
-                       filename: 'C:\Users\Javier.SPECTRE\PyCharmProjects\algotrader\algotrader\log\bsk_error.log',
-                       formatter: simple,
-                       level: ERROR,
-                       maxBytes: 10485760}
-  info_file_handler: {backupCount: 1,
-                      class: logging.handlers.RotatingFileHandler,
-                      encoding: utf8,
-                      filename: 'C:\Users\Javier.SPECTRE\PyCharmProjects\algotrader\algotrader\log\bsk_info.log',
-                      formatter: simple,
-                      level: INFO,
-                      maxBytes: 10485760}
+    console:
+        class: logging.StreamHandler
+        level: DEBUG
+        formatter: simple
+        stream: 'ext://sys.stdout'
+    info_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: INFO
+        formatter: simple
+        filename: 'Z:\Pycham Projects\algotrader\algotrader\log\bsk_info.log'
+        maxBytes: 10485760
+        backupCount: 20
+        encoding: utf8
+    error_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: ERROR
+        formatter: simple
+        filename: 'Z:\Pycham Projects\algotrader\algotrader\log\bsk_error.log'
+        maxBytes: 10485760
+        backupCount: 20
+        encoding: utf8
 loggers:
-  my_module:
-    handlers: [console]
-    level: DEBUG
-    propagate: false
+    my_module:
+        handlers:
+            - console
+        level: ERROR
+        propagate: false
 root:
-  handlers: [console, info_file_handler, error_file_handler]
-  level: NOTSET
+    handlers:
+        - console
+        - info_file_handler
+        - error_file_handler
+    level: INFO
 version: 1

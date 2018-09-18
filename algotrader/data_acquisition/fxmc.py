@@ -200,8 +200,7 @@ def clean_fxcm_originals(original_dirpath, clean_dirpath):
         # get the components of the path
         path_parts = pathlib.Path(each_file).parts
         # Create a new path in clean directory
-        clean_file_path = clean_dir_path / path_parts[-3] / path_parts[-2] / \
-                          path_parts[-1]
+        clean_file_path = clean_dir_path / path_parts[-3] / path_parts[-2] / path_parts[-1]
         # Get the new parent
         new_parent_dir = pathlib.Path(clean_file_path).parent
 
@@ -248,16 +247,13 @@ def update_all(final_date):
     get_files(urls)
 
     clean_fxcm_originals(original_dirpath=ATSett().store_originals_fxcm(),
-                         clean_dirpath=ATSett().store_originals_fxcm())
+                         clean_dirpath=ATSett().store_clean_fxcm())
 
 
 if __name__ == '__main__':
     setup_logging()
     logger = logging.getLogger('fxcm download')
 
-    my_date = '2018-04-30'
+    my_date = '2018-08-31'
     update_all(my_date)
-
-
-
 
