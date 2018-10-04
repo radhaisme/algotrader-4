@@ -1,0 +1,14 @@
+plotly==3.3.0
+requests==2.19.1
+influxdb==5.2.0
+pandas==0.23.4
+numpy==1.15.2
+tabulate==0.8.2
+matplotlib==3.0.0
+pytz==2018.5
+ujson==1.35
+v20==3.0.25.0
+bokeh==0.13.0
+multipledispatch==0.6.0
+PyYAML==3.13
+pip install v20

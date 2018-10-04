@@ -10,7 +10,7 @@ from logging import Formatter
 import pathlib
 import yaml
 import time
-from common.settings import ATSett
+from common.settings import AlgoSettings
 
 
 def setup_logging(default_level=logging.INFO):
@@ -19,7 +19,7 @@ def setup_logging(default_level=logging.INFO):
     :param default_level:
     :return:
     """
-    path = ATSett().log_configuration()
+    path = AlgoSettings().log_configuration()
     path = pathlib.Path(path)
     try:
         with open(path, 'rt') as my_file:
@@ -34,6 +34,7 @@ def update_conf_file():
     """Update the logging configuration file with the paths
     defined in the CONFIG file
     """
+    sett = AlgoSettings()
     saving_path = pathlib.Path(sett.log_saving_path())
     config_file = pathlib.Path(sett.log_configuration())
 
@@ -91,6 +92,8 @@ def log_test():
 
 
 if __name__ == '__main__':
-    setup_logging()
-    logger = logging.getLogger('log_config')
-    log_test()
+    # setup_logging()
+    # logger = logging.getLogger('log_config')
+    # log_test()
+
+    update_conf_file()

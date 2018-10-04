@@ -10,20 +10,20 @@ import yaml
 
 # General setting to run the program, as database or broker connection info.
 SYSTEM_SETTINGS = 'TRADE_CONF'
+FILE_SETTINGS = '/home/javier/MacroGDrive/trading/trading.conf'
 # Settings regarding a trading strategy
 STRATEGY_SETTINGS = None
 
 
-class ATSett:
+class AlgoSettings:
     """General configuration options of AlgoTrader System."""
-    def __init__(self, get_from='env'):
+    def __init__(self, get_from='file'):
         """
         :param get_from: 'env' for environmental variable
                          'file' string pointing to conf file
         """
         self.get_from = get_from
         self.stream = self._stream()
-        self.config_path = None
 
     # Internal functions
     def _path_from_env(self):
@@ -32,12 +32,16 @@ class ATSett:
             self.config_path = pathlib.Path(env_value)
         except (KeyError, FileNotFoundError, AttributeError):
             # TODO revise exceptions here
-            logging.exception('Environmental Variable not correctly '
-                              'configured or no present.')
+            logging.exception('Environmental Variable not correctly configured or no present.')
             raise SystemError
 
     def _path_from_file(self):
-        raise NotImplementedError
+        try:
+            self.config_path = pathlib.Path(FILE_SETTINGS)
+        except (KeyError, FileNotFoundError, AttributeError):
+            # TODO revise exceptions here
+            logging.exception('Environmental Variable not correctly configured or no present.')
+            raise SystemError
 
     def _stream(self):
         if self.get_from == 'env':
@@ -77,7 +81,7 @@ class ATSett:
         return self.stream['logging']['config']
 
     def log_saving_path(self):
-        return self.stream['logging']['saving_path']
+        return self.stream['logging']['log_path']
 
 
 class StratSett:
@@ -88,3 +92,6 @@ class StratSett:
         raise NotImplementedError
 
 
+if __name__ == '__main__':
+    x = AlgoSettings()
+    print(x.oanda_connection_type())

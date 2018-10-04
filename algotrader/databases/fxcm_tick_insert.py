@@ -17,7 +17,7 @@ import pandas as pd
 from pytz import utc
 
 import databases.influx_manager as db_man
-from common.settings import ATSett
+from common.settings import AlgoSettings
 from data_acquisition.fxmc import in_store
 from log.log_settings import setup_logging, log_title
 
@@ -327,7 +327,7 @@ def multiple_file_insert():
 
     :return:
     """
-    store = pathlib.Path(ATSett().store_clean_fxcm())
+    store = pathlib.Path(AlgoSettings().store_clean_fxcm())
     time0 = datetime.datetime.now()
 
     log_title("START LOADING MULTIPLE TICK FILES")

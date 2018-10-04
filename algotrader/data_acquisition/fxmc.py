@@ -13,7 +13,7 @@ from time import sleep
 
 
 import requests
-from common.settings import ATSett
+from common.settings import AlgoSettings
 from log.log_settings import setup_logging, log_title
 
 # Available symbols from FXCM server.
@@ -49,8 +49,8 @@ def all_possible_urls(end_date):
     :return:
     """
     # This is the base url and the file extension
-    url = ATSett().fxcm_data_path()
-    store_path = pathlib.Path(ATSett().store_originals_fxcm())
+    url = AlgoSettings().fxcm_data_path()
+    store_path = pathlib.Path(AlgoSettings().store_originals_fxcm())
     url_suffix = '.csv.gz'
 
     # Set the dates
@@ -116,7 +116,7 @@ def definitive_urls(overwrite, end_date):
 
     if not overwrite:
         # What files are already in store
-        already_in_store = in_store(ATSett().store_originals_fxcm())
+        already_in_store = in_store(AlgoSettings().store_originals_fxcm())
 
         for filepath in already_in_store:
             filename = filepath.parts[-1]
@@ -246,8 +246,8 @@ def update_all(final_date):
                            end_date=final_date)
     get_files(urls)
 
-    clean_fxcm_originals(original_dirpath=ATSett().store_originals_fxcm(),
-                         clean_dirpath=ATSett().store_clean_fxcm())
+    clean_fxcm_originals(original_dirpath=AlgoSettings().store_originals_fxcm(),
+                         clean_dirpath=AlgoSettings().store_clean_fxcm())
 
 
 if __name__ == '__main__':

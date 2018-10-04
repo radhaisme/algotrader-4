@@ -9,7 +9,7 @@ from influxdb import DataFrameClient
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBServerError, InfluxDBClientError
 
-from common.settings import ATSett
+from common.settings import AlgoSettings
 
 
 def influx_client(client_type='client', user_type='reader'):
@@ -20,7 +20,7 @@ def influx_client(client_type='client', user_type='reader'):
     :return:
     """
     # Get the configuration info
-    config = ATSett().influx_config()
+    config = AlgoSettings().influx_config()
 
     # initialize the client
     host = config['host']
