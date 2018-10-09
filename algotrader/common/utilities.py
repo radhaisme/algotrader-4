@@ -7,7 +7,7 @@ import os
 import pathlib
 from functools import wraps
 from itertools import tee, islice, chain
-import time
+
 
 def rename_files(dir_path):
     """
@@ -87,7 +87,7 @@ def iter_islast(iterable):
 
 def previous_and_next(some_iterable):
     """
-    Generates tupple  with three consecutive elements of an iterable
+    Generates tuple  with three consecutive elements of an iterable
     source where the first element is the previous element of the iteration,
     the second element is the current element and the last is the next.
 
